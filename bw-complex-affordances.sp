@@ -34,7 +34,7 @@ sorts
 
 #inertial_fluent = on(#thing(X), #surf(Y)):X!=Y + z_loc(#obj_w_zloc, #vertsz) + location(#thing, #domain) + in_hand(#robot, #object).
 
-#def_fluent = in_range(#obj_w_zloc, #robot).
+#def_fluent = in_range(#obj_w_zloc, #obj_w_zloc, #vertsz). %, can_support(#surf, #thing, #bool).
 
 #fluent = #inertial_fluent +#def_fluent.
 
@@ -62,8 +62,8 @@ weight(#thing, #mass).
 material(#box, #materials).
 has_exit(#domain, #opening).
 % Affordance Predicate
-can_support(#surf, #thing, #bool).
-adjusts_range(#surf, #robot, #obj_w_zloc).
+can_support(#surf, #thing, #bool). % TODO this needs to have a rule which changes it through time, or needs to be a fluent
+
 
 
 holds(#fluent, #step).
@@ -132,11 +132,11 @@ can_support(S,R,false) :- holds(on(S,S2),I),
 can_support(S,R,false) :- not can_support(S, R, true).
          
 
-adjusts_range(S, R, O) :- holds(z_loc(O,LO),I),
-			   holds(z_loc(S,LS),I),
-                       	   height(R,H),
-                       	   LO<=(H+LS),
-                       	   LO>=LS.
+%adjusts_range(S, R, O) :- holds(z_loc(O,LO),I),
+%			   holds(z_loc(S,LS),I),
+%                       	   height(R,H),
+%                       	   LO<=(H+LS),
+%                       	   LO>=LS.
 
 %%%%%%%%%%%%%%%%%%%
 % State Constraints
@@ -153,11 +153,10 @@ holds(z_loc(O,L+H),I) :- holds(on(O,S),I),
 
 
 % Whether an object is in range is determined by agents' reach, location, and the objects' location
-holds(in_range(O,R),I) :- holds(z_loc(O,LO),I),
-                          holds(z_loc(R,LR),I),
-                          height(R,H),
-                          LO<=LR,
-                          LO>=LR-H.
+holds(in_range(OB0,OB1,X),I) :- holds(z_loc(OB0,Z0),I),
+                                holds(z_loc(OB1,Z1),I),
+                         	    height(OB0,H0), height(OB1, H1),
+                       	        X = (Z0-H0)-(Z1-H1).
                           
 % object can only be on one surface at a time
 -holds(on(O, S), T) :- #thing(O), holds(on(O, S2), T), S!=S2.
@@ -180,7 +179,7 @@ holds(in_range(O,R),I) :- holds(z_loc(O,LO),I),
                            O1!=O.
 
 % can't pick up objects which are out of reach
--occurs(pick_up(R,O),I) :- not holds(in_range(O,R),I).
+%-occurs(pick_up(R,O),I) :- not holds(in_range(O,R),I).
 
 % can't move object not currently holding
 -occurs(move_to(R,O,S),I) :- not holds(in_hand(R,O),I).
@@ -208,7 +207,7 @@ holds(in_range(O,R),I) :- holds(z_loc(O,LO),I),
                                  not has_exit(L1,D),
                                  not has_exit(L2,D).
 
--occurs(go_through(R,D,L2),I) :- not holds(in_range(D,R),I).
+%-occurs(go_through(R,D,L2),I) :- not holds(in_range(D,R),I).
 
 
 -occurs(go_to(R,S),I) :- affordance_forbids(go_to(R,S),I,ID).
@@ -240,7 +239,7 @@ holds(F, I+1) :- #inertial_fluent(F),
 
 % CWA
 -holds(F,I) :- not holds(F,I), #def_fluent(F).
-
+%  TODO this should work if commented out
 
  
 %%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -296,34 +295,48 @@ affordance_forbids(go_to(R,S), I, 11) :- weight(R,heavy), material(S,paper).
 % A paper box can't support a heavy object
 affordance_forbids(move_to(R,O,S), I, 12) :- weight(O,heavy), material(S,paper).
 % Something can't be moved if it can't be picked up
-affordance_forbids(move_to(R,O,S), I, 14) :- affordance_forbids(pick_up(R,O), I, ID).
+affordance_forbids(move_to(R,O,S), I, 13) :- affordance_forbids(pick_up(R,O), I, ID).
 
 % A robot can't go to a structure that cannot support it
-affordance_forbids(go_to(R,S), I, 13) :- can_support(S, R, false).
+affordance_forbids(go_to(R,S), I, 14) :- can_support(S, R, false).
 
 % affordance permits picking up things that are not heavy
 affordance_permits(pick_up(R,O), I, 15) :- weight(O, light).
 affordance_permits(pick_up(R,O), I, 16) :- weight(O, medium).
 
+affordance_permits(pick_up(R,O), I, 17) :- height(R,H), height(O,HO),
+										   holds(in_range(O,R,X),I),
+										   X<H,
+										   X>=0.
+% check if this will work if not forbid
+
 % affordance permits moving objects that can be picked up
-affordance_permits(move_to(R,O,S), I, 17) :- affordance_permits(pick_up(R,O), I, ID), 
-					     not affordance_forbids(pick_up(R,O), I, ID).
+affordance_permits(move_to(R,O,S), I, 18) :- affordance_permits(pick_up(R,O), I, ID), 
+					   					     not affordance_forbids(pick_up(R,O), I, ID).
 
 % affordance permits going to objects that can support the robot
-affordance_permits(go_to(R,S), I, 18) :- can_support(S, R, true).
+affordance_permits(go_to(R,S), I, 19) :- can_support(S, R, true).
 
 % affordance permits going to objects that can support the robot
 
 
-% unless... permits if in range 
-affordance_permits(pick_up(R,O), I, 19) :- holds(on(R,S), I), holds(in_range(R, O), I).
+% unless... permits if in range  ???
+% affordance_permits(pick_up(R,O), I, 20) :- holds(on(R,S), I), holds(in_range(R, O), I).
 
 % permits if permits by range, support ?
-affordance_permits(pick_up(R,O), I, 20) :- affordance_permits(go_to(R,S), I, ID),
-					   adjusts_range(S, R, O).
+affordance_permits(pick_up(R,O), I, 21) :- affordance_permits(go_to(R,S), I, ID),
+					 					   holds(in_range(S, O, X),I),
+										   height(R,H), height(S,HS), height(O,HO),
+										   X+HS>=0, X+HS<HO.
+										   
 
-affordance_permits(go_through(R,D,L), I, 21) :- affordance_permits(go_to(R,S), I, ID),
-					        adjusts_range(S, R, D).
+%holds(on(R, S), I), 					   
+										   
+       									  
+affordance_permits(go_through(R,D,L), I, 22) :- affordance_permits(go_to(R,S), I, ID),
+												height(R,HR), height(D, HD), height(S,HS),
+					                            holds(in_range(S, D, X),I),
+												X+HS+HR>0, X+HS<=HD.
 
 % BUT... this wouldn't demonstrate the capability that I need. 
 % which is Permits(x), permits(y), permits(z)
