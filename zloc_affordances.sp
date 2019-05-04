@@ -1,4 +1,4 @@
-#const n=3.
+#const n=4.
 
 %%%%%%%%%%%%%
 %%% SORTS %%%
@@ -7,9 +7,11 @@
 sorts
 
 %% Things
+#domain = {room, room2}.
+#opening = {door}.
 #box = {box1, box2, box3}.
 #robot = {bot}.
-#static_obj = {floor}. 
+#static_obj = {floor, door}. 
 #thing = #box + #robot. 
 #object = #box.
 #surf = #box + #static_obj.
@@ -30,10 +32,9 @@ sorts
 %%% fluents %%%
 %%%%%%%%%%%%%%%
 
-#inertial_fluent = on(#thing(X), #surf(Y)):X!=Y + z_loc(#obj_w_zloc(X), #vertsz).
+#inertial_fluent = on(#thing(X), #surf(Y)):X!=Y + z_loc(#obj_w_zloc, #vertsz) + location(#thing, #domain).
 
 #def_fluent = in_range(#obj_w_zloc, #robot).
-
 
 #fluent = #inertial_fluent +#def_fluent.
 
@@ -42,7 +43,10 @@ sorts
 %%%%%%%%%%%%%%%
 
 #action = go_to(#robot, #surf) +
-          move_to(#robot, #object(X), #surf(Y)):X!=Y.
+          move_to(#robot, #object(X), #surf(Y)):X!=Y+
+          go_through(#robot, #opening, #domain). 
+
+% go through includes the target location as it's currently the easiest way for me to specify locations without the door malarky
 
 
 
@@ -55,8 +59,9 @@ predicates
 height(#obj_w_zloc, #vertsz).
 weight(#thing, #mass).
 material(#box, #materials).
+has_exit(#domain, #opening).
 % Affordance Predicate
-can_support(#surf, #thing).
+can_support(#surf, #thing, #bool).
 
 
 holds(#fluent, #step).
@@ -100,11 +105,21 @@ holds(z_loc(R,Z+H),I+1) :- occurs(go_to(R,S),I),
 holds(z_loc(O,Z+H),I+1) :- occurs(move_to(R,O,S),I),
                            height(O,H),
                            holds(z_loc(S,Z),I).
+
+% go_through the door causes the robot to be in room2.
+holds(location(R,L),I+1) :- occurs(go_through(R,D,L),I).
+
+
            
 %%%%%%%
 % Other
 
-can_support(S, R) :- holds(on(S,X),I), not affordance_forbids(go_to(R,X),ID).
+can_support(S, R, true) :- not affordance_forbids(go_to(R,S),ID).
+
+
+% a structure can't support a robot if it's on something that can't support the robot
+can_support(S,R,false) :- holds(on(S,S2),I),
+                          affordance_forbids(go_to(R,S2),ID).
          
 
 %%%%%%%%%%%%%%%%%%%
@@ -134,6 +149,9 @@ holds(in_range(O,R),I) :- holds(z_loc(O,LO),I),
 % object properties have one value per object
 -height(OZ,H2) :- height(OZ,H), H != H2.
 
+% things can be in only one room at a time. This shouldn't be necessary. 
+-holds(location(X,L),I) :- holds(location(X,L2),I), L!=L2.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -162,8 +180,23 @@ holds(in_range(O,R),I) :- holds(z_loc(O,LO),I),
 -occurs(move_to(R,O,S),I) :- holds(on(O2, S), I),
                              #box(S).
 
--occurs(go_to(R,S),T) :- affordance_forbids(go_to(R,S),ID).
-%-occurs(move_to(R,O,S),T) :- affordance_forbids(move_to(R,O,S),ID).
+% go_through possible only if the opening is in the room the robot is in, and in movement range
+-occurs(go_through(R,D,L2),I) :- not holds(location(R,L1),I),
+                                 not has_exit(L1,D),
+                                 not has_exit(L2,D).
+
+-occurs(go_through(R,D,L2),I) :- not holds(in_range(D,R),I).
+
+
+-occurs(go_to(R,S),I) :- affordance_forbids(go_to(R,S),ID).
+-occurs(move_to(R,O,S),T) :- affordance_forbids(move_to(R,O,S),ID).
+%-occurs(go_to(R,S),T) :- not affordance_permits(go_to(R,S),ID).
+
+% general affordance rules?
+-occurs(A,I) :- affordance_forbids(A,ID).
+%-occurs(A,I) :- not affordance_permits(A,ID).
+
+
 
 					   
 %%%%%%%%%%%%%%%%					   
@@ -240,18 +273,17 @@ affordance_forbids(go_to(R,S), 11) :- weight(R,heavy), material(S,paper).
 % A paper box can't support a heavy object
 affordance_forbids(move_to(R,O,S), 12) :- weight(O,heavy), material(S,paper).
 
-%affordance_forbids going to x if x is on Y and affordance forbids go to y
-affordance_forbids(go_to(R,S), 13) :- holds(on(S,X),I),affordance_forbids(go_to(R,X),ID).
+% A robot can't go to a structure that cannot support it
+affordance_forbids(go_to(R,S), 13) :- can_support(S, R, false).
 
-% Alternatively, using a predicate can_support
-% affordance_permits(go_to(R,S), 13) :- can_support(S, R).
-% Which is defined by the rule:
-% can_support(S, R) :- holds(on(S,X),I), not affordance_forbids(go_to(R,X),ID).
 
 
 %%%%%%%%%%%%%%
 %%% GROUND %%%
 %%%%%%%%%%%%%%
+
+has_exit(room, door).
+has_exit(room2, door).
 
 weight(bot, heavy).
 weight(box1, light).
@@ -269,6 +301,7 @@ height(floor, 0).
 height(box1, 1). 
 height(box2, 1). 
 height(box3, 1).
+height(door, 3).
 
 
 % as floor is an independent object, just add this to make sure it's not causing trouble
@@ -276,11 +309,13 @@ holds(z_loc(floor,0),0).
 holds(z_loc(floor,0),1).
 holds(z_loc(floor,0),2).
 holds(z_loc(floor,0),3).
+holds(z_loc(door,5),0).
 
 holds(on(box1,box3),0). holds(on(box2,floor),0). holds(on(box3,floor),0).
 holds(on(bot, floor),0).
 
-goal(I) :- holds(z_loc(bot,5), I). 
+goal(I) :- holds(z_loc(bot,6), I). % this should be impossible with two wooden and one paper box
+%goal(I) :- holds(location(bot,room2), I). 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -290,6 +325,7 @@ occurs.
 goal.
 holds.
 %-holds.
+can_support.
  
  
  
