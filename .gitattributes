@@ -1,0 +1,2 @@
+# Override linguist
+*.sp linguist-language=SPARC
