@@ -1,4 +1,4 @@
-#const n=7.
+#const n=8.
 
 %%%%%%%%%%%%%
 %%% SORTS %%%
@@ -31,13 +31,13 @@ sorts
 %%% fluents %%%
 %%%%%%%%%%%%%%%
 
-#inertial_fluent = on(#thing(X), #surf(Y)):X!=Y + z_loc(#obj_w_zloc(X), #vertsz) + in_hand(#robot, #object).
+%#inertial_fluent = on(#thing(X), #surf(Y)):X!=Y + z_loc(#obj_w_zloc(X), #vertsz) + in_hand(#robot, #object).
 
-%#inertial_fluent = on(#thing(X), #surf(Y)):X!=Y + in_hand(#robot, #object).
+#inertial_fluent = on(#thing(X), #surf(Y)):X!=Y + in_hand(#robot, #object).
 
-#def_fluent = in_range(#obj_w_zloc, #robot).
+%#def_fluent = in_range(#obj_w_zloc, #robot).
 
-%#def_fluent = in_range(#obj_w_zloc, #robot) + z_loc(#obj_w_zloc(X), #vertsz).
+#def_fluent = in_range(#obj_w_zloc, #robot) + z_loc(#obj_w_zloc(X), #vertsz).
 
 #fluent = #inertial_fluent +#def_fluent.
 
@@ -165,11 +165,11 @@ holds(in_range(O,R),T) :- holds(z_loc(O,LO),T),
 %%%%%%%%%%%%%%%%					   
 % Inertia Axiom: 
 
-holds(F, I+1) :- #fluent(F),
+holds(F, I+1) :- #inertial_fluent(F),
 		holds(F, I),
 		not -holds(F, I+1).
 
--holds(F, I2) :- #fluent(F),
+-holds(F, I2) :- #inertial_fluent(F),
 		 -holds(F, I1),
 		 not holds(F, I2),
 		 I2 = I1 +1. 
@@ -211,7 +211,7 @@ something_happened(I) :- occurs(A,I).
 %%% History and initial state rules %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Take what actually happened into account...
+%% action history
 occurs(A,I) :- hpd(A,I).
 
 %% Reality check
@@ -277,7 +277,7 @@ holds(on(apebot, floor),0).
 
 %goal(I) :- holds(in_hand(apebot, box2), I). 
 %goal(I) :- holds(z_loc(box2,3), I). 
-goal(I) :- holds(z_loc(apebot,6), I). 
+goal(I) :- holds(z_loc(apebot,5), I). 
 
 %hpd(pick_up(apebot,box2),0).
 %hpd(move_to(apebot,box2,box1),1).

@@ -10,9 +10,9 @@ sorts
 #domain = {room, room2}.
 #opening = {door}.
 #box = {box1, box2, box3}.
-#robot = {bot}.
+#agent = {bot}.
 #static_obj = {floor, door}. 
-#thing = #box + #robot. 
+#thing = #box + #agent. 
 #object = #box.
 #surf = #box + {floor}.
 %% Things that have a 3d location:. 
@@ -32,7 +32,7 @@ sorts
 %%% fluents %%%
 %%%%%%%%%%%%%%%
 
-#inertial_fluent = on(#thing(X), #surf(Y)):X!=Y + z_loc(#obj_w_zloc, #vertsz) + location(#thing, #domain) + in_hand(#robot, #object).
+#inertial_fluent = on(#thing(X), #surf(Y)):X!=Y + z_loc(#obj_w_zloc, #vertsz) + location(#thing, #domain) + in_hand(#agent, #object).
 
 #def_fluent = in_range(#obj_w_zloc, #obj_w_zloc, #vertsz). %, can_support(#surf, #thing, #bool).
 
@@ -42,10 +42,10 @@ sorts
 %%% actions %%%
 %%%%%%%%%%%%%%%
 
-#action = go_to(#robot, #surf) +
-          move_to(#robot, #object(X), #surf(Y)):X!=Y+
-          go_through(#robot, #opening, #domain) +
-          pick_up(#robot, #object). 
+#action = go_to(#agent, #surf) +
+          move_to(#agent, #object(X), #surf(Y)):X!=Y+
+          go_through(#agent, #opening, #domain) +
+          pick_up(#agent, #object). 
 
 % go through includes the target location as it's the easiest way for me to specify this action without additional changes
 
@@ -111,7 +111,7 @@ holds(z_loc(O,Z+H),I+1) :- occurs(move_to(R,O,S),I),
                            height(O,H),
                            holds(z_loc(S,Z),I).
 
-% go_through the door causes the robot to be in room2.
+% go_through the door causes the agent to be in room2.
 holds(location(R,L),I+1) :- occurs(go_through(R,D,L),I).
 
 % pick_up causes in_hand 
@@ -125,7 +125,7 @@ holds(in_hand(R,O), I+1) :- occurs(pick_up(R,O),I).
 can_support(S, R, true) :- not affordance_forbids(go_to(R,S),I,ID).
 
 
-% a structure can't support a robot if it's on something that can't support the robot
+% a structure can't support a agent if it's on something that can't support the agent
 can_support(S,R,false) :- holds(on(S,S2),I),
                           affordance_forbids(go_to(R,S2),I,ID).
 
@@ -188,7 +188,7 @@ holds(in_range(OB0,OB1,X),I) :- holds(z_loc(OB0,Z0),I),
 %-occurs(move_to(R,O,S),I) :- holds(on(O,S),I).
 -occurs(go_to(R,S),I) :- holds(on(R,S),I).
 
-% robot cannot go on top of an object it's currently holding
+% agent cannot go on top of an object it's currently holding
 -occurs(go_to(R,B),I) :- holds(in_hand(R,B),I).
 
 % an object can't be picked_up if something's on top of it
@@ -202,7 +202,7 @@ holds(in_range(OB0,OB1,X),I) :- holds(z_loc(OB0,Z0),I),
 -occurs(move_to(R,O,S),I) :- holds(on(O2, S), I),
                              #box(S).
 
-% go_through possible only if the opening is in the room the robot is in, and in movement range
+% go_through possible only if the opening is in the room the agent is in, and in movement range
 -occurs(go_through(R,D,L2),I) :- not holds(location(R,L1),I),	
                                  not has_exit(L1,D),
                                  not has_exit(L2,D).
@@ -288,55 +288,49 @@ holds(F,0) :- obs(F, B, 0).
 %%% Affordances %%%
 %%%%%%%%%%%%%%%%%%%
 
-% robot can't pick up heavy objects
+% agent can't pick up heavy objects TODO add human and smaller bot for agent specific affs. 
 affordance_forbids(pick_up(R,O), I, 10) :- weight(O, heavy).
-% A heavy robot can't be supported by a paper box
+% A heavy agent can't be supported by a paper box
 affordance_forbids(go_to(R,S), I, 11) :- weight(R,heavy), material(S,paper).
 % A paper box can't support a heavy object
 affordance_forbids(move_to(R,O,S), I, 12) :- weight(O,heavy), material(S,paper).
 % Something can't be moved if it can't be picked up
 affordance_forbids(move_to(R,O,S), I, 13) :- affordance_forbids(pick_up(R,O), I, ID).
 
-% A robot can't go to a structure that cannot support it
+% A agent can't go to a structure that cannot support it
 affordance_forbids(go_to(R,S), I, 14) :- can_support(S, R, false).
 
 % affordance permits picking up things that are not heavy
 affordance_permits(pick_up(R,O), I, 15) :- weight(O, light).
 affordance_permits(pick_up(R,O), I, 16) :- weight(O, medium).
 
+% affordance permits picking up objects that are in agents' range of reach. 
 affordance_permits(pick_up(R,O), I, 17) :- height(R,H), height(O,HO),
-										   holds(in_range(O,R,X),I),
-										   X<H,
-										   X>=0.
+																				   holds(in_range(O,R,X),I),
+																					 X<H,
+																					 X>=0.
 % check if this will work if not forbid
 
 % affordance permits moving objects that can be picked up
 affordance_permits(move_to(R,O,S), I, 18) :- affordance_permits(pick_up(R,O), I, ID), 
-					   					     not affordance_forbids(pick_up(R,O), I, ID).
+					   														     not affordance_forbids(pick_up(R,O), I, ID).
 
-% affordance permits going to objects that can support the robot
+% affordance permits going to objects that can support the agent
 affordance_permits(go_to(R,S), I, 19) :- can_support(S, R, true).
 
-% affordance permits going to objects that can support the robot
-
-
-% unless... permits if in range  ???
-% affordance_permits(pick_up(R,O), I, 20) :- holds(on(R,S), I), holds(in_range(R, O), I).
-
-% permits if permits by range, support ?
+% permits pick_up if there's a surface from which an object can be reached by the agent
 affordance_permits(pick_up(R,O), I, 21) :- affordance_permits(go_to(R,S), I, ID),
-					 					   holds(in_range(S, O, X),I),
-										   height(R,H), height(S,HS), height(O,HO),
-										   X+HS>=0, X+HS<HO.
+					 											   				holds(in_range(S, O, X),I),
+										  			 							height(R,H), height(S,HS), height(O,HO),
+										 				  						X+HS>=0, X+HS<HO.
+										  				   
 										   
-
-%holds(on(R, S), I), 					   
-										   
-       									  
+% permits go_through if there's a surface from which the exit can be reached by the agent AND it's possible for the agent to go to this surface      									  
 affordance_permits(go_through(R,D,L), I, 22) :- affordance_permits(go_to(R,S), I, ID),
-												height(R,HR), height(D, HD), height(S,HS),
-					                            holds(in_range(S, D, X),I),
-												X+HS+HR>0, X+HS<=HD.
+																								height(R,HR), height(D, HD), height(S,HS),
+					                            					holds(in_range(S, D, X),I),
+																								X+HS+HR>0, X+HS<=HD.
+
 
 % BUT... this wouldn't demonstrate the capability that I need. 
 % which is Permits(x), permits(y), permits(z)
@@ -344,7 +338,7 @@ affordance_permits(go_through(R,D,L), I, 22) :- affordance_permits(go_to(R,S), I
 % However - this would need for me to add several things to the script where it actually worked in the first place.
 
 % affordance permits going through the door if there are enough stackable objects in the domain that can support the robots weight?
-% if there's a surface at the appropriate height that can support the robot
+% if there's a surface at the appropriate height that can support the agent
 % if such a surface can be constructed. 
 % permits pick up(R,O) :- permits(move(R, B, S)), permits(go_to(R,B)), adjusts_range(B, R, O) if on(B, S)
 % I could add something that affords changing zloc - but that is implied in the fact that I can move it so how do I define it through this?
