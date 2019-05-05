@@ -34,7 +34,7 @@ sorts
 
 #inertial_fluent = on(#thing(X), #surf(Y)):X!=Y + z_loc(#obj_w_zloc, #vertsz) + location(#thing, #domain) + in_hand(#agent, #object).
 
-#def_fluent = in_range(#obj_w_zloc, #obj_w_zloc, #vertsz). %, can_support(#surf, #thing, #bool).
+#def_fluent = in_range(#obj_w_zloc, #obj_w_zloc, #vertsz) + can_support(#surf, #thing, #bool).
 
 #fluent = #inertial_fluent +#def_fluent.
 
@@ -61,11 +61,9 @@ height(#obj_w_zloc, #vertsz).
 weight(#thing, #mass).
 material(#box, #materials).
 has_exit(#domain, #opening).
+
+
 % Affordance Predicate
-can_support(#surf, #thing, #bool). % TODO this needs to have a rule which changes it through time, or needs to be a fluent
-
-
-
 holds(#fluent, #step).
 occurs(#action, #step).
 
@@ -122,21 +120,19 @@ holds(in_hand(R,O), I+1) :- occurs(pick_up(R,O),I).
 %%%%%%%
 % Other
 
-can_support(S, R, true) :- not affordance_forbids(go_to(R,S),I,ID).
+holds(can_support(S, R, true),I) :- not affordance_forbids(go_to(R,S),I,ID).
 
 
 % a structure can't support a agent if it's on something that can't support the agent
-can_support(S,R,false) :- holds(on(S,S2),I),
-                          affordance_forbids(go_to(R,S2),I,ID).
+holds(can_support(S,R,false),I) :- holds(on(S,S2),I),
+               					           affordance_forbids(go_to(R,S2),I,ID). % TODO add not aff_permits(;;) here
 
-can_support(S,R,false) :- not can_support(S, R, true).
-         
+% CWA 
+holds(can_support(S,R,false),I) :- not holds(can_support(S, R, true),I).
 
-%adjusts_range(S, R, O) :- holds(z_loc(O,LO),I),
-%			   holds(z_loc(S,LS),I),
-%                       	   height(R,H),
-%                       	   LO<=(H+LS),
-%                       	   LO>=LS.
+% only one of these is possible
+:- holds(can_support(S, R, true),I), holds(can_support(S1,R,false),I), S=S1.
+
 
 %%%%%%%%%%%%%%%%%%%
 % State Constraints
@@ -239,7 +235,7 @@ holds(F, I+1) :- #inertial_fluent(F),
 
 % CWA
 -holds(F,I) :- not holds(F,I), #def_fluent(F).
-%  TODO this should work if commented out
+
 
  
 %%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -288,6 +284,8 @@ holds(F,0) :- obs(F, B, 0).
 %%% Affordances %%%
 %%%%%%%%%%%%%%%%%%%
 
+% TODO: strange stuff happening with can support. Inspect the fluent, the rules, the affordances (NB. both!!)
+
 % agent can't pick up heavy objects TODO add human and smaller bot for agent specific affs. 
 affordance_forbids(pick_up(R,O), I, 10) :- weight(O, heavy).
 % A heavy agent can't be supported by a paper box
@@ -298,7 +296,7 @@ affordance_forbids(move_to(R,O,S), I, 12) :- weight(O,heavy), material(S,paper).
 affordance_forbids(move_to(R,O,S), I, 13) :- affordance_forbids(pick_up(R,O), I, ID).
 
 % A agent can't go to a structure that cannot support it
-affordance_forbids(go_to(R,S), I, 14) :- can_support(S, R, false).
+affordance_forbids(go_to(R,S), I, 14) :- holds(can_support(S, R, false),I).
 
 % affordance permits picking up things that are not heavy
 affordance_permits(pick_up(R,O), I, 15) :- weight(O, light).
@@ -316,7 +314,7 @@ affordance_permits(move_to(R,O,S), I, 18) :- affordance_permits(pick_up(R,O), I,
 					   														     not affordance_forbids(pick_up(R,O), I, ID).
 
 % affordance permits going to objects that can support the agent
-affordance_permits(go_to(R,S), I, 19) :- can_support(S, R, true).
+affordance_permits(go_to(R,S), I, 19) :- holds(can_support(S, R, true),I), not affordance_forbids(go_to(R,S),I,ID).
 
 % permits pick_up if there's a surface from which an object can be reached by the agent
 affordance_permits(pick_up(R,O), I, 21) :- affordance_permits(go_to(R,S), I, ID),
@@ -397,9 +395,9 @@ display
 %goal.
 %holds.
 %-holds.
-%can_support.
+holds(can_support(A, B, C),I).
 affordance_permits.
-%affordance_forbids.
+affordance_forbids.
  
  
  
