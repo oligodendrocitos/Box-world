@@ -34,7 +34,7 @@ sorts
 
 #inertial_fluent = on(#thing(X), #surf(Y)):X!=Y + z_loc(#obj_w_zloc, #vertsz) + location(#thing, #domain) + in_hand(#agent, #object).
 
-#def_fluent = in_range(#obj_w_zloc, #obj_w_zloc, #vertsz) + can_support(#surf, #thing, #bool).
+#def_fluent = in_range(#obj_w_zloc, #obj_w_zloc, #vertsz) + can_support(#surf, #thing).
 
 #fluent = #inertial_fluent +#def_fluent.
 
@@ -59,7 +59,7 @@ predicates
 % Properties
 height(#obj_w_zloc, #vertsz).
 weight(#thing, #mass).
-material(#box, #materials).
+material(#surf, #materials).
 has_exit(#domain, #opening).
 
 
@@ -120,18 +120,20 @@ holds(in_hand(R,O), I+1) :- occurs(pick_up(R,O),I).
 %%%%%%%
 % Other
 
-holds(can_support(S, R, true),I) :- not affordance_forbids(go_to(R,S),I,ID).
+holds(can_support(S, R),I) :- affordance_permits(go_to(R,S),I,ID).
+-holds(can_support(S, R),I) :- affordance_forbids(go_to(R,S),I,11).
+-holds(can_support(S, R),I) :- affordance_forbids(go_to(R,S),I,14).
 
 
 % a structure can't support a agent if it's on something that can't support the agent
-holds(can_support(S,R,false),I) :- holds(on(S,S2),I),
-               					           affordance_forbids(go_to(R,S2),I,ID). % TODO add not aff_permits(;;) here
+%holds(can_support(S,R,false),I) :- holds(on(S,S2),I),
+%               					           affordance_forbids(go_to(R,S2),I,ID). % TODO add not aff_permits(;;) here
 
 % CWA 
-holds(can_support(S,R,false),I) :- not holds(can_support(S, R, true),I).
+%-holds(can_support(S,R),I) :- not holds(can_support(S, R),I).
 
 % only one of these is possible
-:- holds(can_support(S, R, true),I), holds(can_support(S1,R,false),I), S=S1.
+%:- -holds(can_support(S, R),I), holds(can_support(S1,R),I), S=S1.
 
 
 %%%%%%%%%%%%%%%%%%%
@@ -296,7 +298,7 @@ affordance_forbids(move_to(R,O,S), I, 12) :- weight(O,heavy), material(S,paper).
 affordance_forbids(move_to(R,O,S), I, 13) :- affordance_forbids(pick_up(R,O), I, ID).
 
 % A agent can't go to a structure that cannot support it
-affordance_forbids(go_to(R,S), I, 14) :- holds(can_support(S, R, false),I).
+affordance_forbids(go_to(R,S), I, 14) :- not holds(can_support(S, R),I), #object(S).
 
 % affordance permits picking up things that are not heavy
 affordance_permits(pick_up(R,O), I, 15) :- weight(O, light).
@@ -314,7 +316,8 @@ affordance_permits(move_to(R,O,S), I, 18) :- affordance_permits(pick_up(R,O), I,
 					   														     not affordance_forbids(pick_up(R,O), I, ID).
 
 % affordance permits going to objects that can support the agent
-affordance_permits(go_to(R,S), I, 19) :- holds(can_support(S, R, true),I), not affordance_forbids(go_to(R,S),I,ID).
+affordance_permits(go_to(R,S), I, 19) :- not affordance_forbids(go_to(R,S),I,11),
+                                         not affordance_forbids(go_to(R,S),I,14).
 
 % permits pick_up if there's a surface from which an object can be reached by the agent
 affordance_permits(pick_up(R,O), I, 21) :- affordance_permits(go_to(R,S), I, ID),
@@ -361,6 +364,7 @@ material(box1,paper).
 %material(box2,paper).
 material(box2,wood).
 material(box3,wood).
+material(floor,wood).
 
 
 height(bot, 3).
