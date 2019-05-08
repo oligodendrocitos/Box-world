@@ -115,6 +115,22 @@ holds(location(R,L),I+1) :- occurs(go_through(R,D,L),I).
 % pick_up causes in_hand 
 holds(in_hand(R,O), I+1) :- occurs(pick_up(R,O),I).
 
+% pick_up negates an objects location.
+-holds(on(O,S),I+1) :- occurs(pick_up(R,O),I), 
+                       holds(on(O,S),I). 
+
+-holds(z_loc(O,Z),I+1) :- occurs(pick_up(R,O),I), 
+                          holds(z_loc(O,Z),I). 
+
+% go_to causes an agent to change its location
+-holds(on(A,S),I+1) :- occurs(go_to(A,S2),I), 
+                       holds(on(A,S),I).
+
+% moving causes z coordinates to change 
+-holds(z_loc(R,Z),I+1) :- occurs(go_to(R,S),I),
+                          holds(z_loc(R,Z),I).
+% !! This may cause an issue if moving to a place on the same height as before. This should be a defined fluent.
+
 
            
 %%%%%%%
@@ -126,8 +142,8 @@ holds(can_support(S, R),I) :- affordance_permits(go_to(R,S),I,ID).
 
 
 % a structure can't support a agent if it's on something that can't support the agent
-%holds(can_support(S,R,false),I) :- holds(on(S,S2),I),
-%               					           affordance_forbids(go_to(R,S2),I,ID). % TODO add not aff_permits(;;) here
+-holds(can_support(S,R),I) :- holds(on(S,S2),I),
+               					      affordance_forbids(go_to(R,S2),I,ID). % TODO add not aff_permits(;;) here
 
 % CWA 
 %-holds(can_support(S,R),I) :- not holds(can_support(S, R),I).
@@ -176,6 +192,8 @@ holds(in_range(OB0,OB1,X),I) :- holds(z_loc(OB0,Z0),I),
 -occurs(pick_up(R,O),I) :- holds(in_hand(R,O1),I),
                            O1!=O.
 
+-occurs(pick_up(R,O),I) :- holds(in_hand(R,O),I).
+
 % can't pick up objects which are out of reach
 %-occurs(pick_up(R,O),I) :- not holds(in_range(O,R),I).
 
@@ -214,9 +232,10 @@ holds(in_range(OB0,OB1,X),I) :- holds(z_loc(OB0,Z0),I),
 
 % general affordance rules?
 -occurs(A,I) :- affordance_forbids(A,I,ID).
-%-occurs(A,I) :- not affordance_permits(A,ID). % this could be too restrictive
+%-occurs(A,I) :- not affordance_permits(A,I,ID). % this could be too restrictive
 -occurs(pick_up(R,O),I) :- -affordance_permits(pick_up(R,O),I,ID).
 -occurs(A,I) :- -affordance_permits(A,I,ID).
+-occurs(go_through(A,D,R),I) :- not affordance_permits(go_through(A,D,R),I,ID).
 
 					   
 %%%%%%%%%%%%%%%%					   
@@ -226,10 +245,9 @@ holds(F, I+1) :- #inertial_fluent(F),
 		holds(F, I),
 		not -holds(F, I+1).
 
--holds(F, I2) :- #inertial_fluent(F),
-		 -holds(F, I1),
-		 not holds(F, I2),
-		 I2 = I1 +1. 
+-holds(F, I+1) :- #inertial_fluent(F),
+		 -holds(F, I),
+		 not holds(F, I+1). 
 
 
 % actions don't occur unless they definitely do
@@ -244,12 +262,12 @@ holds(F, I+1) :- #inertial_fluent(F),
 %%% GOALS AND PLANNING %%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%success :- goal(I),
-%           I <= n. 
-%:- not success.
+success :- goal(I),
+           I <= n. 
+:- not success.
 
 % an action must occur at each step
-%occurs(A,I) | -occurs(A,I) :- not goal(I).
+occurs(A,I) | -occurs(A,I) :- not goal(I).
 
 % do not allow concurrent actions
 :- occurs(A1, I),
@@ -257,14 +275,14 @@ holds(F, I+1) :- #inertial_fluent(F),
    A1!=A2.
 
 % don't allow periods of inaction
-%something_happened(I) :- occurs(A,I).
+something_happened(I) :- occurs(A,I).
 
-%:- not something_happened(I),
-%   something_happened(I+1).
+:- not something_happened(I),
+   something_happened(I+1).
 
-%:- goal(I), goal(I-1),
-%   J < I,
-%   not something_happened(J).
+:- goal(I), goal(I-1),
+   J < I,
+   not something_happened(J).
 
 %%%%%%%%%%%%%%%       
 %%% History %%%
@@ -385,7 +403,7 @@ holds(z_loc(door,5),0).
 holds(on(box1,box3),0). holds(on(box2,floor),0). holds(on(box3,floor),0).
 holds(on(bot, floor),0).
 
-%goal(I) :- holds(z_loc(bot,5), I). % this should be impossible with two wooden and one paper box
+%goal(I) :- holds(z_loc(bot,5), I). % this should be impossible with two wooden and one paper box if bot height is 2
 
 %goal(I) :- holds(location(bot,room2), I). 
 %goal(I) :- holds(in_hand(bot,box1), I). 
@@ -395,11 +413,10 @@ holds(on(bot, floor),0).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 display
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%occurs.
-%goal.
-%holds.
+occurs.
+goal.
+holds.
 %-holds.
-holds(can_support(A, B, C),I).
 affordance_permits.
 affordance_forbids.
  
