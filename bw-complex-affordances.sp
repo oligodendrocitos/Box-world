@@ -166,10 +166,20 @@ holds(z_loc(O,L+H),I) :- holds(on(O,S),I),
                          holds(z_loc(S,L),I).
 
 
-% Whether an object is in range is determined by agents' reach, location, and the objects' location
+% In range specifies location of one object w.r.t. another
+% Range is a number (of sort #vertsz). Numbers in .sp must be non-negative,
+% so OB0 must be higher, or on the same level as OB1.
+% X therefore denotes how much higher the base of OB0 is 
+% w.r.t. the base of OB1. 
+% For example, if OB0 and OB1 are on the same surface, X=0;
+% if OB0 is on a surface 1 unit higher than the bottom surface of OB1, X=1.
+% The bottom surface is used because objects and agents have varying height.
+% Using z_loc (top surface coordinates) would require more arithmetic when 
+% defining action capabilities of specific agents. 
 holds(in_range(OB0,OB1,X),I) :- holds(z_loc(OB0,Z0),I),
                                 holds(z_loc(OB1,Z1),I),
-                         	    height(OB0,H0), height(OB1, H1),
+																height(OB0,H0), height(OB1, H1),
+																(Z0-H0)>=(Z1-H1),
                        	        X = (Z0-H0)-(Z1-H1).
                           
 % object can only be on one surface at a time
@@ -235,7 +245,7 @@ holds(in_range(OB0,OB1,X),I) :- holds(z_loc(OB0,Z0),I),
 %-occurs(A,I) :- not affordance_permits(A,I,ID). % this could be too restrictive
 -occurs(pick_up(R,O),I) :- -affordance_permits(pick_up(R,O),I,ID).
 -occurs(A,I) :- -affordance_permits(A,I,ID).
--occurs(go_through(A,D,R),I) :- not affordance_permits(go_through(A,D,R),I,ID).
+-occurs(go_through(A,D,R),I) :- not affordance_permits(go_through(A,D,R),I,23).
 
 					   
 %%%%%%%%%%%%%%%%					   
@@ -306,6 +316,13 @@ holds(F,0) :- obs(F, B, 0).
 
 % TODO: strange stuff happening with can support. Inspect the fluent, the rules, the affordances (NB. both!!)
 
+% Add: 
+% Medium heavy agent can't be supported by paper objects, 
+% Light agent can be supported by cardboard objects
+% Strength: Strong agents can lift heavy objects
+% Perhaps, human agents can lift things that are a bit below them, whereas a bor can't. 
+% a roomba or some agent without arms can't lift at all. 
+
 % agent can't pick up heavy objects TODO add human and smaller bot for agent specific affs. 
 affordance_forbids(pick_up(R,O), I, 10) :- weight(O, heavy).
 % A heavy agent can't be supported by a paper box
@@ -323,10 +340,13 @@ affordance_permits(pick_up(R,O), I, 15) :- weight(O, light).
 affordance_permits(pick_up(R,O), I, 16) :- weight(O, medium).
 
 % affordance permits picking up objects that are in agents' range of reach. 
+% if X=0, object is at agents' 'feet'; 
+% if X=H (agents' height), the object is above the agent (and thus can't be picked up).
 affordance_permits(pick_up(R,O), I, 17) :- height(R,H), height(O,HO),
 																				   holds(in_range(O,R,X),I),
 																					 X<H,
 																					 X>=0.
+
 % check if this will work if not forbid
 
 % affordance permits moving objects that can be picked up
@@ -337,18 +357,37 @@ affordance_permits(move_to(R,O,S), I, 18) :- affordance_permits(pick_up(R,O), I,
 affordance_permits(go_to(R,S), I, 19) :- not affordance_forbids(go_to(R,S),I,11),
                                          not affordance_forbids(go_to(R,S),I,14).
 
-% permits pick_up if there's a surface from which an object can be reached by the agent
-affordance_permits(pick_up(R,O), I, 21) :- affordance_permits(go_to(R,S), I, ID),
-					 											   				holds(in_range(S, O, X),I),
-										  			 							height(R,H), height(S,HS), height(O,HO),
-										 				  						X+HS>=0, X+HS<HO.
+% permits pick_up if there's a surface from which an object can be reached by the agent:
+% if X=0, the base of the object starts at the same level as the surface. 
+% in this case 
+% if X-height(surf)=0, the object would be at agents' 'feet'.
+% if X-height(surf)>=height(agent), then the object would be above the agent.  
+%affordance_permits(pick_up(R,O), I, 21) :- affordance_permits(go_to(R,S), I, ID),
+%					 											   				 holds(in_range(O, S, X),I),
+%										  			 							 height(R,H), height(S,HS), height(O,HO),
+%										 				  						 X>=0+HS,
+%																					 X<H+HS.
 										  				   
 										   
-% permits go_through if there's a surface from which the exit can be reached by the agent AND it's possible for the agent to go to this surface      									  
-affordance_permits(go_through(R,D,L), I, 22) :- affordance_permits(go_to(R,S), I, ID),
+% permits go_through if there's a surface from which the exit can be reached by the agent 
+% AND it's possible for the agent to go to this surface.
+% Height of surf and agent need to be at least X, otherwise the door is above the agent;
+% Height of surf needs to be smaller than X and the object height, otherwise the door is below the agent.
+
+% This rule... is odd - the agent should not be able to go through at I if it's not on the right level.      									  
+%affordance_permits(go_through(R,D,L), I, 22) :- affordance_permits(go_to(R,S), I, ID),
+%																								height(R,HR), height(D, HD), height(S,HS),
+%					                            					holds(in_range(D, S, X),I),
+%																								HS+HR>X,
+%																								HS<X+HD.
+
+% permits go through if door is within agents' reach
+% Statements as above. 
+affordance_permits(go_through(R,D,L), I, 23) :- holds(on(R,S),I),
 																								height(R,HR), height(D, HD), height(S,HS),
-					                            					holds(in_range(S, D, X),I),
-																								X+HS+HR>0, X+HS<=HD.
+					                            					holds(in_range(D, S, X),I),
+																								HS+HR>X,
+																								HS<X+HD.
 
 
 % BUT... this wouldn't demonstrate the capability that I need. 
@@ -385,7 +424,7 @@ material(box3,wood).
 material(floor,wood).
 
 
-height(bot, 3).
+height(bot, 2).
 height(floor, 0).
 height(box1, 1). 
 height(box2, 1). 
@@ -402,10 +441,11 @@ holds(z_loc(door,5),0).
 
 holds(on(box1,box3),0). holds(on(box2,floor),0). holds(on(box3,floor),0).
 holds(on(bot, floor),0).
+holds(location(bot, room),0).
 
 %goal(I) :- holds(z_loc(bot,5), I). % this should be impossible with two wooden and one paper box if bot height is 2
 
-%goal(I) :- holds(location(bot,room2), I). 
+goal(I) :- holds(location(bot,room2), I). 
 %goal(I) :- holds(in_hand(bot,box1), I). 
 %goal(I) :- holds(on(box1, box2), I). 
 
