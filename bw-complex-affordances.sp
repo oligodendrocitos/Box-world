@@ -10,7 +10,7 @@ sorts
 #domain = {room, room2}.
 #opening = {door}.
 #box = {box1, box2, box3}.
-#agent = {bot}.
+#agent = {robot, human}.
 #static_obj = {floor, door}. 
 #thing = #box + #agent. 
 #object = #box.
@@ -19,7 +19,7 @@ sorts
 #obj_w_zloc = #thing + #static_obj.
 
 %% Properties
-#vertsz = 0..6. % units of length for Z for height and z location
+#vertsz = 0..18. % units of length for Z for height and z location
 #mass = {light, medium, heavy}.
 #materials = {paper, wood}.
 
@@ -233,9 +233,6 @@ holds(in_range(OB0,OB1,X),I) :- holds(z_loc(OB0,Z0),I),
                                  not has_exit(L1,D),
                                  not has_exit(L2,D).
 
-%-occurs(go_through(R,D,L2),I) :- not holds(in_range(D,R),I).
-
-
 -occurs(go_to(R,S),I) :- affordance_forbids(go_to(R,S),I,ID).
 -occurs(pick_up(R,O,S),T) :- affordance_forbids(pick_up(R,O,S),I,ID).
 -occurs(move_to(R,O,S),T) :- affordance_forbids(move_to(R,S),I,ID).
@@ -411,7 +408,8 @@ affordance_permits(go_through(R,D,L), I, 23) :- holds(on(R,S),I),
 has_exit(room, door).
 has_exit(room2, door).
 
-weight(bot, heavy).
+weight(robot, heavy).
+weight(human, heavy).
 weight(box1, light).
 weight(box2, medium).
 weight(box3, medium).
@@ -424,7 +422,8 @@ material(box3,wood).
 material(floor,wood).
 
 
-height(bot, 2).
+height(robot, 2).
+height(human, 3).
 height(floor, 0).
 height(box1, 1). 
 height(box2, 1). 
@@ -437,16 +436,18 @@ holds(z_loc(floor,0),0).
 holds(z_loc(floor,0),1).
 holds(z_loc(floor,0),2).
 holds(z_loc(floor,0),3).
-holds(z_loc(door,5),0).
+holds(z_loc(door,7),0).
 
 holds(on(box1,box3),0). holds(on(box2,floor),0). holds(on(box3,floor),0).
-holds(on(bot, floor),0).
-holds(location(bot, room),0).
+holds(on(robot, floor),0).
+holds(location(robot, room),0).
 
-%goal(I) :- holds(z_loc(bot,5), I). % this should be impossible with two wooden and one paper box if bot height is 2
+%goal(I) :- holds(z_loc(robot,5), I). % this should be impossible with two wooden and one paper box if bot height is 2
 
-goal(I) :- holds(location(bot,room2), I). 
-%goal(I) :- holds(in_hand(bot,box1), I). 
+%goal(I) :- holds(location(robot,room2), I), holds(location(human, room2),I). 
+goal(I) :- holds(location(human, room2),I). 
+%goal(I) :- holds(location(robot,room2), I). 
+%goal(I) :- holds(in_hand(robot,box1), I). 
 %goal(I) :- holds(on(box1, box2), I). 
 
 
