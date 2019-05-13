@@ -8,20 +8,21 @@ sorts
 
 #area = {room, room2}.											% enclosed space
 #exit = {door}.															% an opening
-#box = {box1, box2, box3, box4, apple}.			% defined as a sort for convenience (assume a shape+properties)
-#agent = {robot, human}.										% entities that perceive and act
+#box = {box1, box2, box3, box4}.						% defined as a sort for convenience (assume a rect. shape+surf.properties)
+#other = {apple}.														% other objects in the domain
+#agent = {robot, human, ghengis}.						% entities that perceive and act
 
 #fixed_element = {floor, door}.							% things that don't change their coordinates (e.g. architecture)
-#thing = #box + #agent. 										% things that are mobile
-#object = #box.															% things that can be acted upon by agents
+#object = #box + #other.										% things that can be acted upon by agents
+#thing = #object + #agent. 									% things that are mobile
 #surf = #box + {floor}.											% things that have a surface
 #obj_w_zloc = #thing + #fixed_element.			% things that have a 3d location / coordinates 
 
 %% Properties
 #vertsz = 0..18. 														% units of length/distance
 #weight = {light, medium, heavy}.						% levels of weight
-#substance = {paper, wood}.									% substance objects are made of 
-#power = {weak, strong}. 							
+#substance = {paper, wood, cardboard, bio}.	% substance objects are made of 
+#power = {weak, strong}. 										% agents' capacity to exert force
 
 #step = 0..n.																% time indices
 #id = 10..30.																% affordance identifiers
@@ -33,9 +34,9 @@ sorts
 
 % TODO: 
 % 1. change z_loc to z_c 
-% 2. add coordinates X,Y,Z, e.g. loc(thing, x, y, z)
+% 2. add coordinates X,Y,Z, e.g. loc(thing, x_c, y_c, z_c)
 % 3. get rid of #surf add has_surf(thing, bool) instead
-% 4. add a fluent for distance between objects
+% 4. add a fluent for distance between objects (if using the method from Sindlar&Meyer)
 % 5. change can support to an affordance
 
 #inertial_fluent = on(#thing(X), #surf(Y)):X!=Y + z_loc(#obj_w_zloc, #vertsz) + location(#thing, #area) + in_hand(#agent, #object).
@@ -64,6 +65,7 @@ predicates
 
 % Properties
 height(#obj_w_zloc, #vertsz).
+has_power(#agent, #power).
 has_weight(#thing, #weight).
 material(#surf, #substance).
 has_exit(#area, #exit).
@@ -115,11 +117,17 @@ holds(z_loc(O,Z+H),I+1) :- occurs(move_to(R,O,S),I),
                            height(O,H),
                            holds(z_loc(S,Z),I).
 
-% go_through the door causes the agent to be in room2.
+% Agent R going through exit D that leads to L, 
+% causes agent to change its' location to L.
 holds(location(R,L),I+1) :- occurs(go_through(R,D,L),I).
 
 % pick_up causes in_hand 
 holds(in_hand(R,O), I+1) :- occurs(pick_up(R,O),I).
+
+
+% Because z_loc is an inertial fluent, it requires
+% explicit rules negating the previous z_loc everytime 
+% it changes. 
 
 % pick_up negates an objects location.
 -holds(on(O,S),I+1) :- occurs(pick_up(R,O),I), 
@@ -135,14 +143,16 @@ holds(in_hand(R,O), I+1) :- occurs(pick_up(R,O),I).
 % moving causes z coordinates to change 
 -holds(z_loc(R,Z),I+1) :- occurs(go_to(R,S),I),
                           holds(z_loc(R,Z),I).
-% !! This may cause an issue if moving to a place on the same height as before. This should be a defined fluent.
+% !! This may cause an issue if moving to a place on the same height as before. 
+% This should be a defined fluent.
+% ALternatively, add a condition about on(A,S2), and test for equality between z_loc(S2==S)
 
 
 
 %%%%%%%%%%%%%%%%%%%
 % State Constraints
 
-% two things can't be at the same location, unless this location is the floor
+% two things can't be on the same surface, unless this surface is the floor
 -holds(on(O,S),T) :- holds(on(O2,S),T),
                      #box(S),
                      O!=O2.
@@ -191,9 +201,6 @@ holds(in_range(OB0,OB1,X),I) :- holds(z_loc(OB0,Z0),I),
 
 -occurs(pick_up(R,O),I) :- holds(in_hand(R,O),I).
 
-% can't pick up objects which are out of reach
-%-occurs(pick_up(R,O),I) :- not holds(in_range(O,R),I).
-
 % can't move object not currently holding
 -occurs(move_to(R,O,S),I) :- not holds(in_hand(R,O),I).
 
@@ -215,17 +222,19 @@ holds(in_range(OB0,OB1,X),I) :- holds(z_loc(OB0,Z0),I),
 -occurs(move_to(R,O,S),I) :- holds(on(O2, S), I),
                              #box(S).
 
-% go_through possible only if the exit is in the room the agent is in, and in movement range
+% go_through possible only if the exit is in the area the agent is in
+% and only if the exit D connects the current location to the target L2
 -occurs(go_through(R,D,L2),I) :- not holds(location(R,L1),I),	
                                  not has_exit(L1,D),
                                  not has_exit(L2,D).
 
 
-% Affordance rules:
+
+% Affordance rules and executability conditions:
 
 
-holds(can_support(S, R),I) :- affordance_permits(go_to(R,S),I,ID).
--holds(can_support(S, R),I) :- affordance_forbids(go_to(R,S),I,11).
+holds(can_support(S, R),I) :- affordance_permits(go_to(R,S),I,ID). % isn't this inconsistent?
+-holds(can_support(S, R),I) :- not affordance_permits(go_to(R,S),I,20).
 -holds(can_support(S, R),I) :- affordance_forbids(go_to(R,S),I,14).
 
 
@@ -233,11 +242,6 @@ holds(can_support(S, R),I) :- affordance_permits(go_to(R,S),I,ID).
 -holds(can_support(S,R),I) :- holds(on(S,S2),I),
                					      affordance_forbids(go_to(R,S2),I,ID). % TODO add not aff_permits(;;) here
 
-% CWA 
-%-holds(can_support(S,R),I) :- not holds(can_support(S, R),I).
-
-% only one of these is possible
-%:- -holds(can_support(S, R),I), holds(can_support(S1,R),I), S=S1.
 
 -occurs(go_to(R,S),I) :- affordance_forbids(go_to(R,S),I, 14).
 -occurs(pick_up(R,O,S),T) :- affordance_forbids(pick_up(R,O,S),I,ID).
@@ -289,7 +293,7 @@ occurs(A,I) | -occurs(A,I) :- not goal(I).
    occurs(A2, I),
    A1!=A2.
 
-% don't allow periods of inaction
+% don't allow time periods of doing nothing
 something_happened(I) :- occurs(A,I).
 
 :- not something_happened(I),
@@ -303,13 +307,21 @@ something_happened(I) :- occurs(A,I).
 %%% History %%%
 %%%%%%%%%%%%%%%
 
-%% actions
+% actions
+% add exogenous actions - if hpd(A,I) is not observed,
+% but some fluent is observed to change its value,
+% then use a cr rule to assume an action happened -
+% this can't be inlcuded here because I already have an inconsistency 
+% that's driving the planning.
+
+% if an action is observed, assume it has occured
 occurs(A,I) :- hpd(A,I).
 
-%% Reality check
+% check for contradictions
 :- obs(F, true, I), -holds(F, I).
 :- obs(F, false, I), holds(F, I).
 
+% state at t=0
 holds(F,0) :- obs(F, B, 0).
 -holds(F, 0) :- #inertial_fluent(F), not holds(F, 0).
 
@@ -325,15 +337,19 @@ holds(F,0) :- obs(F, B, 0).
 % Medium heavy agent can't be supported by paper objects, 
 % Light agent can be supported by cardboard objects
 % Strength: Strong agents can lift heavy objects
-% Perhaps, human agents can lift things that are a bit below them, whereas a bor can't. 
+% Perhaps, human agents can lift things that are a bit below them, whereas a robot can't. 
 % a roomba or some agent without arms can't lift at all. 
 
-% agent can't pick up heavy objects  
-affordance_forbids(pick_up(R,O), I, 10) :- has_weight(O, heavy).
+% only a strong agent can pick up heavy objects  
+affordance_forbids(pick_up(R,O), I, 10) :- has_weight(O, heavy), not has_power(R, strong).
 % A heavy agent can't be supported by a paper box
-affordance_forbids(go_to(R,S), I, 11) :- has_weight(R,heavy), material(S,paper).
+affordance_forbids(go_to(A,S), I, 11) :- has_weight(A,heavy), material(S,paper).
 % A paper box can't support a heavy object
 affordance_forbids(move_to(R,O,S), I, 12) :- has_weight(O,heavy), material(S,paper).
+% Heavy things shouldn't be put on biological materials
+affordance_forbids(move_to(R,O,S), I, 27) :- has_weight(O,heavy), material(S,bio).
+% Heavy things shouldn't be put on cardboard
+affordance_forbids(move_to(R,O,S), I, 28) :- has_weight(O,heavy), material(S,cardboard).
 
 % Exec. Cond. 
 % Something can't be moved if it can't be picked up
@@ -346,7 +362,7 @@ affordance_forbids(go_to(R,S), I, 14) :- not holds(can_support(S, R),I), #object
 % General case:
 % affordance permits picking up things that are not heavy for the agent. 
 affordance_permits(pick_up(R,O), I, 15) :- has_weight(O, light).
-affordance_permits(pick_up(R,O), I, 16) :- has_weight(O, medium).
+affordance_permits(pick_up(R,O), I, 16) :- has_weight(O, medium), not has_power(R, weak).
 
 % Exec. Cond. 
 % affordance permits picking up objects that are in agents' range of reach. 
@@ -360,7 +376,7 @@ affordance_permits(pick_up(R,O), I, 17) :- height(R,H), height(O,HO),
 
 
 % General Case
-% affordance permits moving objects that can be picked up.
+% affordance permits moving objects that can be picked up and aren't .
 affordance_permits(move_to(R,O,S), I, 18) :- affordance_permits(pick_up(R,O), I, 15), 
 																						 affordance_permits(pick_up(R,O), I, 16),
 																						 not affordance_forbids(move_to(R,O,S), I, 12).
@@ -374,17 +390,16 @@ affordance_permits(move_to(R,O,S), I, 19) :- affordance_permits(pick_up(R,O), I,
 % General Case
 % affordance permits going to objects that can support the agent
 affordance_permits(go_to(R,S), I, 20) :- not affordance_forbids(go_to(R,S),I,11).
+% TODO: alter this. 20 is a general case for all other properties not currently listed. 
 
 % General Case
 % affordance permits to go to some surface if it is on top of something that can support the agent.
 affordance_permits(go_to(A,S),I, 21) :- affordance_permits(go_to(A,S),I, 20),
-																				not affordance_forbids(go_to(A,S),I, 14).
-% TODO: alter this. 21 is the same as 22 if 20 is removed. No - 20 is a general case for all other properties not currently listed. 
-																		
+																				not affordance_forbids(go_to(A,S),I, 14).	% ?? This might make the can support rule inconsistent																	
 
-% Exec. Cond. 
+% Exec. Cond
 % affordance permits going to objects that can support the agent and are not on top of something that doesn't. 
-affordance_permits(go_to(R,S), I, 22) :- not affordance_forbids(go_to(R,S),I,11),
+affordance_permits(go_to(R,S), I, 22) :- affordance_permits(go_to(R,S),I,20),
                                          not affordance_forbids(go_to(R,S),I,14).
 
 % General Case I
@@ -399,7 +414,7 @@ affordance_permits(pick_up(R,O), I, 23) :- affordance_permits(go_to(R,S), I, ID)
 										 				  						 X>=0+HS,
 																					 X<H+HS.
 % N.B.: there's an executability condition in the head of the above rule (ID includes 21 & 22). 
-% I'm not sure whether it would work result in nonsense if this is changed to the general case. 
+% I'm not sure whether it would result in nonsense if this is changed to the general case. 
 
 % General Case II
 % permits pick_up if there's an object the agent can move and stand on in order to pick
@@ -427,6 +442,13 @@ affordance_permits(go_through(R,D,L), I, 25) :- affordance_permits(go_to(R,S), I
 																								HS+HR>X,
 																								HS<X+HD.
 																								
+% General Case II																						
+affordance_permits(go_through(R,D,L), I, 29) :- affordance_permits(go_to(R,S), I, ID),
+																								height(R,HR), height(D, HD), height(S,HS),
+					                            					holds(in_range(D, S, X),I),
+																								HS+HR>X,
+																								HS<X+HD.
+																								
 %affordance_permits
 
 % Exec. Cond. 
@@ -444,6 +466,11 @@ affordance_permits(go_through(R,D,L), I, 26) :- holds(on(R,S),I),
 %%%%%%%%%%%%%%
 %%% GROUND %%%
 %%%%%%%%%%%%%%
+
+% Test I: There's stuff an agent can move, but cannot stand on
+% Test II: There's stuff an agent can stand on, but can't move (really this needs x&y coordinates)
+% Test III: There's stuff an agent can move and stand on, but not enough to reach the target. 
+% If no goal is set, and actions are available, it it should be able to infer whether an agent can exit the room based on agent properties.  
 
 has_exit(room, door).
 has_exit(room2, door).
@@ -491,7 +518,8 @@ holds(location(robot, room),0).
 
 %goal(I) :- holds(location(robot,room2), I), holds(location(human, room2),I). 
 %goal(I) :- holds(location(human, room2),I). 
-%goal(I) :- holds(location(robot,room2), I). 
+%goal(I) :- holds(location(robot,room2), I).
+%goal(I) :- holds(on(robot,box4), I).  
 %goal(I) :- holds(in_hand(robot,box1), I). 
 %goal(I) :- holds(on(box1, box2), I). 
 goal(I) :- holds(in_hand(robot, apple),I).
@@ -509,6 +537,6 @@ affordance_permits.
  
  
  
- 
+
  
  
