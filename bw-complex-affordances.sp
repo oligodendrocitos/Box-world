@@ -236,13 +236,25 @@ holds(in_range(OB0,OB1,X),I) :- holds(z_loc(OB0,Z0),I),
 % Affordance rules and executability conditions:
 
 
-holds(can_support(S, R),I) :- affordance_permits(go_to(R,S),I,ID). % isn't this inconsistent?
+holds(can_support(S, R),I) :- affordance_permits(go_to(R,S),I,ID). % this was ID
 -holds(can_support(S, R),I) :- not affordance_permits(go_to(R,S),I,20).
 -holds(can_support(S, R),I) :- affordance_forbids(go_to(R,S),I,14).
 
 % a structure can't support a agent if it's on something that can't support the agent
 -holds(can_support(S,R),I) :- holds(on(S,S2),I),
                		      affordance_forbids(go_to(R,S2),I,ID). % add not aff_permits(go_to(22)) here
+
+% same for objects
+%holds(can_support(S, O),I) :- affordance_permits(move_to(R,O,S),I,18).
+holds(can_support(S, O),I) :- not affordance_forbids(move_to(R,O,S),I,12),
+                              not affordance_forbids(move_to(R,O,S),I,30),
+                              not affordance_forbids(move_to(R,O,S),I,27).
+%-holds(can_support(S, R),I) :- not affordance_permits(go_to(R,S),I,20).
+-holds(can_support(S, O),I) :- affordance_forbids(move_to(R,O,S),I,ID), ID!=13.
+
+-holds(can_support(S,O),I) :- holds(on(S,S2),I),
+               		      affordance_forbids(move_to(R,O,S2),I,ID),
+			      ID!=13.
 
 
 -occurs(go_to(R,S),I) :- affordance_forbids(go_to(R,S),I, 14).
@@ -354,13 +366,17 @@ affordance_forbids(move_to(R,O,S), I, 27) :- has_weight(O,heavy), material(S,bio
 affordance_forbids(move_to(R,O,S), I, 28) :- has_weight(O,heavy), material(S,cardboard).
 
 % Exec. Cond. 
-% Something can't be moved if it can't be picked up
+% Something can't be moved if it can't be picked up (right now)
 affordance_forbids(move_to(R,O,S), I, 13) :- affordance_forbids(pick_up(R,O), I, ID).
 % This doesn't cause issues: it only contains the forbid actions that are timeless. 
 
 % Exec. Cond. 
-% A agent can't go to a structure that cannot support it
+% An agent can't go to a structure that cannot support it
 affordance_forbids(go_to(R,S), I, 14) :- not holds(can_support(S, R),I), #object(S).
+
+% Exec. Cond. 
+% An object can't be moved to a structure that cannot support it
+affordance_forbids(move_to(R,O,S), I, 30) :- not holds(can_support(S, O),I), #object(S).
 
 % General case:
 % affordance permits picking up things that are not heavy for the agent. 
@@ -386,10 +402,10 @@ affordance_permits(move_to(R,O,S), I, 18) :- not affordance_forbids(pick_up(R,O)
 % 15,16 should be forbidding, otherwise this throws out valid actions. 
 
 % Exec. Cond.
-% affordance permits moving objects that can be picked up. 
+% affordance permits moving objects that can be picked up, to surfaces that currently can support the object. 
 affordance_permits(move_to(R,O,S), I, 19) :- not affordance_forbids(pick_up(R,O), I, ID),
-                                             affordance_permits(move_to(R,O,S), I, 18),
-					     not affordance_forbids(move_to(R,O,S),I, 12).
+                                             affordance_permits(move_to(R,O,S), I, 18).
+					     %not affordance_forbids(move_to(R,O,S),I, 12).
 
 % General Case
 % affordance permits going to objects that can support the agent
