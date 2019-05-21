@@ -25,7 +25,7 @@ sorts
 #power = {weak, strong}. 				% agents' capacity to exert force
 
 #step = 0..n.						% time indices
-#id = 10..30.						% affordance identifiers
+#id = 10..35.						% affordance identifiers
 #bool = {true, false}.					% boolean values for hpd, or fluents
 
 %%%%%%%%%%%%%%%
@@ -72,8 +72,6 @@ has_weight(#thing, #weight).
 material(#surf, #substance).
 has_exit(#area, #exit).
 
-
-% Affordance Predicate
 holds(#fluent, #step).
 occurs(#action, #step).
 
@@ -90,6 +88,9 @@ affordance_forbids(#action, #step, #id).
 obs(#fluent, #bool, #step).
 hpd(#action, #step).
 
+% Minimal planning predicates
+%pref(#step,#step).
+%maxt(#step).
 
 
 %%%%%%%%%%%%%
@@ -299,6 +300,16 @@ success :- goal(I),
            I <= n. 
 :- not success.
 
+
+%maxt(I) :+ I<=n.
+%pref(I, I+1).
+
+occurs(A,I)  | -occurs(A,I) :+ not goal(I).
+                               %maxt(MI),
+                               %I<MI,
+                               %pref(I, I+1),
+                               %I<=n.
+
 % an action must occur at each step
 occurs(A,I) | -occurs(A,I) :- not goal(I).
 
@@ -309,6 +320,10 @@ occurs(A,I) | -occurs(A,I) :- not goal(I).
 
 % forbid agents from procrastinating
 something_happened(I) :- occurs(A,I).
+
+:- #step(I),
+   not something_happened(I),
+   not goal(I).
 
 :- not something_happened(I),
    something_happened(I+1).
@@ -393,6 +408,16 @@ affordance_permits(pick_up(R,O), I, 17) :- height(R,H), height(O,HO),
 					   X>=0.
 % check if this will work if not forbid
 
+% Exec. Cond.
+% Agents can't go to surfaces that are out of reach.
+affordance_permits(go_to(A,S), I, 31) :- holds(z_loc(S,X),I), % or agent...?
+                                         height(S,H),
+                                         X+H<=1.
+                                         
+affordance_permits(go_to(A,S), I, 32) :- holds(in_range(A,S,X),I),
+                                         height(S,H),
+                                         X+H<=1.
+
 
 % General Case
 % affordance permits moving objects that can be picked up, to suitable locations.
@@ -439,13 +464,13 @@ affordance_permits(pick_up(R,O), I, 23) :- affordance_permits(go_to(R,S), I, ID)
 % General Case II
 % permits pick_up if there's an object the agent can move and stand on in order to pick
 % up the target object.
-affordance_permits(pick_up(A,O), I, 24) :- holds(in_range(O,S,X),I),
-                                           affordance_permits(move_to(A,P,S),I, 18),
-					   affordance_permits(go_to(A,P),I, 20),
-				           affordance_permits(go_to(A,S),I, 22),
-					   height(A,HA), height(O,HO), height(P,HP), height(S,HS),
-					   HA+HS+HP > X,
-					   HS+HP < X+HO.
+%affordance_permits(pick_up(A,O), I, 24) :- holds(in_range(O,S,X),I),
+%                                           affordance_permits(move_to(A,P,S),I, 18),
+%					   affordance_permits(go_to(A,P),I, 20),
+%				           affordance_permits(go_to(A,S),I, 22),
+%					   height(A,HA), height(O,HO), height(P,HP), height(S,HS),
+%					   HA+HS+HP > X,
+%					   HS+HP < X+HO.
 																					 
 										  				   
 
@@ -467,13 +492,13 @@ affordance_permits(go_through(R,D,L), I, 25) :- affordance_permits(go_to(R,S), I
 % If the door is within X units of the base of an object the agent can stand on, and if there's another
 % object the robot can move such that the height of the agent + height of objects would close the gap 
 % between the door and the agent, the agent can exit through the door. 																					
-affordance_permits(go_through(R,D,L), I, 29) :- holds(in_range(D,S,X),I),
-                                                affordance_permits(move_to(A,P,S),I, 18),
-					        affordance_permits(go_to(A,P),I, 20),
-				                affordance_permits(go_to(A,S),I, 22),
-					        height(A,HA), height(O,HO), height(P,HP), height(S,HS),
-					        HA+HS+HP > X,
-					        HS+HP < X+HO.
+%affordance_permits(go_through(R,D,L), I, 29) :- holds(in_range(D,S,X),I),
+%                                                affordance_permits(move_to(A,P,S),I, 18),
+%					        affordance_permits(go_to(A,P),I, 20),
+%				                affordance_permits(go_to(A,S),I, 22),
+%					        height(A,HA), height(O,HO), height(P,HP), height(S,HS),
+%					        HA+HS+HP > X,
+%					        HS+HP < X+HO.
 																								
 %affordance_permits
 
@@ -541,7 +566,8 @@ holds(z_loc(door,7),0).
 
 holds(on(box1,box3),0). holds(on(box2,floor),0). holds(on(box3,floor),0).
 holds(on(box4, floor),0). 
-holds(on(apple, box4),0).
+%holds(on(apple, box4),0).
+holds(on(apple, floor),0).
 holds(on(robot, floor),0).
 holds(location(robot, room),0).
 holds(location(human, room),0).
