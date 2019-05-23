@@ -72,8 +72,6 @@ has_weight(#thing, #weight).
 material(#surf, #substance).
 has_exit(#area, #exit).
 
-
-% Affordance Predicate
 holds(#fluent, #step).
 occurs(#action, #step).
 
@@ -190,12 +188,22 @@ holds(in_range(OB0,OB1,X),I) :- holds(z_loc(OB0,Z0),I),
 % things can be in only one room at a time. This shouldn't be necessary. 
 -holds(location(X,L),I) :- holds(location(X,L2),I), L!=L2.
 
-% can only hold 1 object at a time
--occurs(move_to(R,O,S),T) :- occurs(move_to(R,O1,S),T),
-                             O1!=O.
+% squishy things (biological materials), cardboard cannot support heavy objects.
+-holds(can_support(S,O),I) :- has_weight(O,heavy), material(S,bio).
+-holds(can_support(S,O),I) :- has_weight(O,heavy), material(S,cardboard).
+-holds(can_support(S,O),I) :- has_weight(O,heavy), material(S,paper).
+% an object cannot suport another if it's on top of something that also doesn't support the object. 
+-holds(can_support(S,O),I) :- holds(on(S,S2),I),
+               		      -holds(can_support(S2,O),I).
+% it's defined, thus everyhitng else should be able to support 
+% the object because of CWA. 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 % Executability Conditions
+
+% can only hold 1 object at a time
+-occurs(move_to(R,O,S),T) :- occurs(move_to(R,O1,S),T),
+                             O1!=O.
 
 % can only pick up 1 object at a time
 -occurs(pick_up(R,O),I) :- holds(in_hand(R,O1),I),
@@ -212,6 +220,8 @@ holds(in_range(OB0,OB1,X),I) :- holds(z_loc(OB0,Z0),I),
 
 % agent cannot go on top of an object it's currently holding
 -occurs(go_to(R,B),I) :- holds(in_hand(R,B),I).
+% go_to object not possible if another agent is holding the object                                
+-occurs(go_to(A,S),I) :- holds(in_hand(A2,S),I).
 
 % an object can't be picked_up if something's on top of it
 -occurs(pick_up(R,O),I) :- holds(on(O2, O), I).
@@ -230,8 +240,7 @@ holds(in_range(OB0,OB1,X),I) :- holds(z_loc(OB0,Z0),I),
                                  not has_exit(L1,D),
                                  not has_exit(L2,D).
 
-% go_to object not possible if another agent is holding the object                                
--occurs(go_to(A,S),I) :- holds(in_hand(A2,S),I).
+
 
 
 % Affordance rules and executability conditions:
@@ -245,24 +254,14 @@ holds(can_support(S, R),I) :- affordance_permits(go_to(R,S),I,ID). % this was ID
 -holds(can_support(S,R),I) :- holds(on(S,S2),I),
                		      affordance_forbids(go_to(R,S2),I,ID). % add not aff_permits(go_to(22)) here
 
-% same for objects
-%holds(can_support(S, O),I) :- affordance_permits(move_to(R,O,S),I,18).
-holds(can_support(S, O),I) :- not affordance_forbids(move_to(R,O,S),I,12),
-                              not affordance_forbids(move_to(R,O,S),I,30),
-                              not affordance_forbids(move_to(R,O,S),I,27).
-%-holds(can_support(S, R),I) :- not affordance_permits(go_to(R,S),I,20).
--holds(can_support(S, O),I) :- affordance_forbids(move_to(R,O,S),I,ID), ID!=13.
-
--holds(can_support(S,O),I) :- holds(on(S,S2),I),
-               		      affordance_forbids(move_to(R,O,S2),I,ID),
-			      ID!=13.
-
 % general affordance rules
 -occurs(A,I) :- affordance_forbids(A,I,ID).
 -occurs(pick_up(R,O),I) :- not affordance_permits(pick_up(R,O),I,17).
 -occurs(move_to(A,O,S),I) :- not affordance_permits(move_to(A,O,S),I, 19).
 -occurs(go_to(A,S),I) :- not affordance_permits(go_to(A,S),I,22).
 -occurs(go_through(A,D,R),I) :- not affordance_permits(go_through(A,D,R),I,26).
+
+-occurs(pick_up(R,O),I) :- has_weight(O,heavy), not affordance_permits(pick_up(R,O),I,10).
 
 					   
 %%%%%%%%%%%%%%%%					   
@@ -349,15 +348,10 @@ holds(F,0) :- obs(F, B, 0).
 % a roomba or some agent without arms can't lift at all. 
 
 % only a strong agent can pick up heavy objects  
-affordance_forbids(pick_up(R,O), I, 10) :- has_weight(O, heavy), not has_power(R, strong).
+affordance_permits(pick_up(R,O), I, 10) :- has_power(R, strong).
 % A heavy agent can't be supported by a paper box
 affordance_forbids(go_to(A,S), I, 11) :- has_weight(A,heavy), material(S,paper).
-% A paper box can't support a heavy object
-affordance_forbids(move_to(R,O,S), I, 12) :- has_weight(O,heavy), material(S,paper).
-% Heavy things shouldn't be put on biological materials
-affordance_forbids(move_to(R,O,S), I, 27) :- has_weight(O,heavy), material(S,bio).
-% Heavy things shouldn't be put on cardboard
-affordance_forbids(move_to(R,O,S), I, 28) :- has_weight(O,heavy), material(S,cardboard).
+
 
 % Exec. Cond. 
 % Something can't be moved if it can't be picked up (right now)
@@ -387,19 +381,24 @@ affordance_permits(pick_up(R,O), I, 17) :- height(R,H), height(O,HO),
 					   X>=0.
 % check if this will work if not forbid
 
+% CONT HERE
+% Exec. Cond. 
+% Same fo moving to other surfaces - 1 unit from the 'feet' is the limit.
+affordance_permits(go_to(R,S), I, 24) :- height(R,H), height(O,HO),
+                                         holds(in_range(R,S,X),I),
+					 X<H,
+					 X>=0.
 
 % General Case
 % affordance permits moving objects that can be picked up, to suitable locations.
 affordance_permits(move_to(R,O,S), I, 18) :- not affordance_forbids(pick_up(R,O), I, 15), 
-					     not affordance_forbids(pick_up(R,O), I, 16),
-					     not affordance_forbids(move_to(R,O,S), I, 12).
+					     not affordance_forbids(pick_up(R,O), I, 16).
 % 15,16 should be forbidding, otherwise this throws out valid actions. 
 
 % Exec. Cond.
 % affordance permits moving objects that can be picked up, to surfaces that currently can support the object. 
 affordance_permits(move_to(R,O,S), I, 19) :- not affordance_forbids(pick_up(R,O), I, ID),
                                              affordance_permits(move_to(R,O,S), I, 18).
-					     %not affordance_forbids(move_to(R,O,S),I, 12).
 
 % General Case
 % affordance permits going to objects that can support the agent
