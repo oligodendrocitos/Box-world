@@ -189,14 +189,17 @@ holds(in_range(OB0,OB1,X),I) :- holds(z_loc(OB0,Z0),I),
 -holds(location(X,L),I) :- holds(location(X,L2),I), L!=L2.
 
 % squishy things (biological materials), cardboard cannot support heavy objects.
--holds(can_support(S,O),I) :- has_weight(O,heavy), material(S,bio).
--holds(can_support(S,O),I) :- has_weight(O,heavy), material(S,cardboard).
--holds(can_support(S,O),I) :- has_weight(O,heavy), material(S,paper).
+holds(can_support(S,O),I) :- has_weight(O,light), material(S,bio).
+holds(can_support(S,O),I) :- not has_weight(O,heavy), material(S,cardboard).
+holds(can_support(S,O),I) :- not has_weight(O,heavy), material(S,paper).
+holds(can_support(S,O),I) :- material(S,wood). % assume wood can support anything
 % an object cannot suport another if it's on top of something that also doesn't support the object. 
 -holds(can_support(S,O),I) :- holds(on(S,S2),I),
-               		      -holds(can_support(S2,O),I).
-% it's defined, thus everyhitng else should be able to support 
-% the object because of CWA. 
+               		      not holds(can_support(S2,O),I).
+% it's defined, thus everyhitng else should not be able to support 
+% the object because of CWA.  
+
+% this also means that affordances for agents going to surfaces is redundant...
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 % Executability Conditions
@@ -247,6 +250,7 @@ holds(in_range(OB0,OB1,X),I) :- holds(z_loc(OB0,Z0),I),
 
 
 holds(can_support(S, R),I) :- affordance_permits(go_to(R,S),I,ID). % this was ID
+% can_supp is defined - so these should be redundant. 
 -holds(can_support(S, R),I) :- not affordance_permits(go_to(R,S),I,20).
 -holds(can_support(S, R),I) :- affordance_forbids(go_to(R,S),I,14).
 
@@ -256,12 +260,16 @@ holds(can_support(S, R),I) :- affordance_permits(go_to(R,S),I,ID). % this was ID
 
 % general affordance rules
 -occurs(A,I) :- affordance_forbids(A,I,ID).
--occurs(pick_up(R,O),I) :- not affordance_permits(pick_up(R,O),I,17).
--occurs(move_to(A,O,S),I) :- not affordance_permits(move_to(A,O,S),I, 19).
+-occurs(pick_up(R,O),I) :- not affordance_permits(pick_up(R,O),I,17). % Objects that aren't in range cannot be picked up. 
+%-occurs(move_to(A,O,S),I) :- not affordance_permits(move_to(A,O,S),I, 18).
 -occurs(go_to(A,S),I) :- not affordance_permits(go_to(A,S),I,22).
 -occurs(go_through(A,D,R),I) :- not affordance_permits(go_through(A,D,R),I,26).
 
 -occurs(pick_up(R,O),I) :- has_weight(O,heavy), not affordance_permits(pick_up(R,O),I,10).
+% move_to is possible unless the target surface doesn't support the object. 
+-occurs(move_to(A,O,S),I) :- not holds(can_support(S,O),I).
+
+
 
 					   
 %%%%%%%%%%%%%%%%					   
@@ -352,7 +360,6 @@ affordance_permits(pick_up(R,O), I, 10) :- has_power(R, strong).
 % A heavy agent can't be supported by a paper box
 affordance_forbids(go_to(A,S), I, 11) :- has_weight(A,heavy), material(S,paper).
 
-
 % Exec. Cond. 
 % Something can't be moved if it can't be picked up (right now)
 affordance_forbids(move_to(R,O,S), I, 13) :- affordance_forbids(pick_up(R,O), I, ID).
@@ -364,10 +371,14 @@ affordance_forbids(go_to(R,S), I, 14) :- not holds(can_support(S, R),I), #object
 
 % Exec. Cond. 
 % An object can't be moved to a structure that cannot support it
-affordance_forbids(move_to(R,O,S), I, 30) :- not holds(can_support(S, O),I), #object(S).
+%affordance_forbids(move_to(R,O,S), I, 30) :- not holds(can_support(S, O),I), #object(S).
 
 % General case:
-% affordance permits picking up things that are not heavy for the agent. 
+% affordance permits picking up things that are not heavy for the agent.
+% If I translate these into permits the same as for affordance 10,
+% Then I won't be able to have an affordance for moving objects. 
+% To know whether I can move something, I need to know whether I can pick it up.
+% and the way I know if I can pick something up is by having an explicit affordance. 
 affordance_forbids(pick_up(R,O), I, 15) :- has_weight(O, heavy), has_power(R, weak).
 affordance_forbids(pick_up(R,O), I, 16) :- has_weight(O, medium), has_power(R, weak).
 
@@ -384,21 +395,17 @@ affordance_permits(pick_up(R,O), I, 17) :- height(R,H), height(O,HO),
 % CONT HERE
 % Exec. Cond. 
 % Same fo moving to other surfaces - 1 unit from the 'feet' is the limit.
-affordance_permits(go_to(R,S), I, 24) :- height(R,H), height(O,HO),
-                                         holds(in_range(R,S,X),I),
-					 X<H,
-					 X>=0.
+%affordance_permits(go_to(R,S), I, 24) :- height(R,H), height(O,HO),
+%                                         holds(in_range(R,S,X),I),
+%					 X<H,
+%					 X>=0.
 
 % General Case
-% affordance permits moving objects that can be picked up, to suitable locations.
+% affordance permits moving objects that can be picked up.
 affordance_permits(move_to(R,O,S), I, 18) :- not affordance_forbids(pick_up(R,O), I, 15), 
 					     not affordance_forbids(pick_up(R,O), I, 16).
-% 15,16 should be forbidding, otherwise this throws out valid actions. 
-
-% Exec. Cond.
-% affordance permits moving objects that can be picked up, to surfaces that currently can support the object. 
-affordance_permits(move_to(R,O,S), I, 19) :- not affordance_forbids(pick_up(R,O), I, ID),
-                                             affordance_permits(move_to(R,O,S), I, 18).
+% 15,16 should be forbidding, otherwise this throws out valid actions.
+%affordance_permits(move_to(R,O,S), I, 18) :- has_weight(O, heavy), not affordance_permits(pick_up(R,O), I, 10).
 
 % General Case
 % affordance permits going to objects that can support the agent
