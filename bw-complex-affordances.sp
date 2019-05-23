@@ -386,6 +386,8 @@ affordance_forbids(pick_up(R,O), I, 16) :- has_weight(O, medium), has_power(R, w
 % affordance permits picking up objects that are in agents' range of reach. 
 % if X=0, object is at agents' 'feet'; 
 % if X=H (agents' height), the object is above the agent (and thus can't be picked up).
+% This can't be rewritten in a way as the 10th rule, because I have no idea what to put in the exec. condition.
+% -occurs(pick_up()I), :- not affordance_permits(pick_up(), I, 17), agent/object property-????.
 affordance_permits(pick_up(R,O), I, 17) :- height(R,H), height(O,HO),
                                            holds(in_range(O,R,X),I),
 					   X<H,
@@ -404,8 +406,8 @@ affordance_permits(pick_up(R,O), I, 17) :- height(R,H), height(O,HO),
 % affordance permits moving objects that can be picked up.
 affordance_permits(move_to(R,O,S), I, 18) :- not affordance_forbids(pick_up(R,O), I, 15), 
 					     not affordance_forbids(pick_up(R,O), I, 16).
-% 15,16 should be forbidding, otherwise this throws out valid actions.
-%affordance_permits(move_to(R,O,S), I, 18) :- has_weight(O, heavy), not affordance_permits(pick_up(R,O), I, 10).
+% 15,16 should be forbidding, otherwise this can't be defined.
+%affordance_permits(move_to(R,O,S), I, 19) :- has_weight(O, heavy), not affordance_permits(pick_up(R,O), I, 10).
 
 % General Case
 % affordance permits going to objects that can support the agent
