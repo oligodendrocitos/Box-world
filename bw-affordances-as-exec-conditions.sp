@@ -1,4 +1,4 @@
-#const n=11.
+#const n=10.
 
 %%%%%%%%%%%%%
 %%% SORTS %%%
@@ -202,14 +202,6 @@ holds(can_support(S,O),I) :- material(S,wood). % assume wood can support anythin
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 % Executability Conditions
 
-% can only hold 1 object at a time
-%-occurs(move_to(R,O,S),T) :- occurs(move_to(R,O1,S),T),
-%                             O1!=O.
-
-% can only pick up 1 object at a time
-%-occurs(pick_up(R,O),I) :- holds(in_hand(R,O1),I),
-%                           O1!=O.
-
 -occurs(pick_up(R,O),I) :- holds(in_hand(R,O1),I).
 
 % can't move object not currently holding
@@ -219,11 +211,8 @@ holds(can_support(S,O),I) :- material(S,wood). % assume wood can support anythin
 -occurs(move_to(A,O,S),I) :- holds(in_hand(A2,S),I).
 
 % Going to / moving to the current location results in nothing
-%-occurs(move_to(R,O,S),I) :- holds(on(O,S),I).
 -occurs(go_to(R,S),I) :- holds(on(R,S),I).
 
-% agent cannot go on top of an object it's currently holding
-%-occurs(go_to(R,B),I) :- holds(in_hand(R,B),I).
 % go_to object not possible if another agent is holding the object                                
 -occurs(go_to(A,S),I) :- holds(in_hand(A2,S),I).
 
@@ -255,7 +244,9 @@ holds(can_support(S,O),I) :- material(S,wood). % assume wood can support anythin
 % Affordance rules and executability conditions:
 
 % general affordance rules
+% all forbidding affordances act similar to exec. conditions.
 -occurs(A,I) :- affordance_forbids(A,I,ID).
+
 % objects that aren't in range cannot be picked up. There are no agent properties I can add to this rule. 
 -occurs(pick_up(R,O),I) :- not affordance_permits(pick_up(R,O),I,17). 
 
@@ -265,34 +256,20 @@ holds(can_support(S,O),I) :- material(S,wood). % assume wood can support anythin
 -occurs(pick_up(R,O),I) :- has_weight(O,heavy), not affordance_permits(pick_up(R,O),I,10).
 -occurs(pick_up(R,O),I) :- has_weight(O,medium), not affordance_permits(pick_up(R,O),I,10).
 
-% Agents can't move to surfaces which are out of reach: (% X is where the robots 'feet' are)
-% Things more than 1 unit higher than agents feet:
-%-occurs(go_to(A, S), I) :- holds(z_loc(S,Z),I), 
-%                           holds(z_loc(A,Z2),I),
-%		           height(A,H),
-%  			   Z2-H=X,
-%                           X+1>Z.
+
 % things more than 1 unit lower than agents feet:
-%-occurs(go_to(A, S), I) :- holds(z_loc(S,Z),I), 
-%                           holds(z_loc(A,Z2),I),
-%		           height(A,H),
-%  			   Z2-H=X,
-%                           Z2>X-1, 
-%                           Z2<X+1.
-%                           X-Z2<2.
 
-%-occurs(go_to(A, S), I) :- holds(z_loc(S,Z),I), 
-%                           holds(z_loc(A,Z2),I),
-%		           height(A,H),
-%  			   Z2-H=X,
-%                           Z2<X-1. 
+-occurs(go_to(A, S), I) :- holds(z_loc(S,Z),I), 
+                           holds(z_loc(A,Z2),I),
+		            height(A,H),
+  			    Z2-H = BASE,
+                           Z < BASE-1. 
                            
-
-%-occurs(go_to(A, S), I) :- holds(z_loc(S,Z),I), 
-%                           holds(z_loc(A,Z2),I),
-%		           height(A,H),
-%  			   Z2-H=X, 
-%                           Z2>X+1.
+-occurs(go_to(A, S), I) :- holds(z_loc(S,Z),I), 
+                           holds(z_loc(A,Z2),I),
+		            height(A,H),
+  			    Z2-H = BASE, 
+                           Z > BASE + 1.
 
 					   
 %%%%%%%%%%%%%%%%					   
@@ -369,17 +346,16 @@ holds(F,0) :- obs(F, B, 0).
 %%% Affordances %%%
 %%%%%%%%%%%%%%%%%%%
 
-% In this version, I'll try to replace forbitting statements with 
-% blanket permitting statements, and replace permitting statements 
-% with simple permitting statements, where possible. 
-% In this versiion I'll replace the forbidding statements with exec conditions
-% and remove the rules I think are not needed from the AL desc. 
+% Affordance permits: in general, things are not possible unless a particular agent-object property combination holds.
+% Unfortunately, this isn't always easy to set up in this domain, as the head does not have information that would be
+% needed to determine whether the rule applies: 
+% relation 10 has R in the head and the body, and so can be used in the statement 
+% -occurs(X(R, Y)) :- not(aff_permits(X, R, 10), heavy(O). (not syntactically precise)
+% whereas relations like 17 include only R, O in their head, but other parameters such as S, X, H, HO etc.
+% which determines when the relation holds. This can't be separated into components like rule 10.
+
 
 affordance_permits(pick_up(R,O), I, 10) :- has_power(R, strong).
-
-% Exec. Cond. 
-% An agent can't go to a structure that cannot support it
-%affordance_forbids(go_to(R,S), I, 14) :- not holds(can_support(S, R),I), #object(S).
 
 % Exec. Cond. 
 % affordance permits picking up objects that are in agents' range of reach. 
@@ -391,23 +367,7 @@ affordance_permits(pick_up(R,O), I, 17) :- height(R,H), height(O,HO),
                                            holds(in_range(O,R,X),I),
 					   X<H,
 					   X>=0.
-% keep only height here? no that's impossible
-
-
-% robot can only go to surfaces at the same height +-1
-% 
-% Exec. Cond. 
-% Same fo moving to other surfaces - 1 unit from the 'feet' is the limit.
-% affordance_permits(go_to(R,S), I, 24) :- height(R,H), height(O,HO),
-%                                         holds(in_range(R,S,X),I),
-%					 X<H,
-%					 X>=0.
-
-
-% Exec. Cond
-% affordance permits going to objects that can support the agent and are not on top of something that doesn't. 
-%affordance_permits(go_to(R,S), I, 22) :- holds(can_support(S,R),I).
-
+% It's not feasible to only keep height in this rule to make it similar to the rule above. 
 
 % General Case I
 % permits pick_up if there's a surface from which an object can be reached by the agent:
@@ -443,6 +403,13 @@ affordance_permits(go_through(R,D,L), I, 26) :- holds(on(R,S),I),
                                                 holds(in_range(D, S, X),I),
 						HS+HR>X,
 						HS<X+HD.
+
+%affordance_permits(go_to(A, S), I, 27) :- holds(z_loc(S,Z),I), 
+%                         		   holds(z_loc(A,Z2),I),
+%		            		   height(A,H),
+%  			    		   Z2-H= BASE,
+%                           		   Z > BASE-1, 
+%                           		   Z < BASE+1.
 
 
 %%%%%%%%%%%%%%
