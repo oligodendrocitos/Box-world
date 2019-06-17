@@ -13,10 +13,10 @@ sorts
 #agent = {robot, human, ghengis}.			% entities that perceive and act
 
 #fixed_element = {floor, door}.				% things that don't change their coordinates (e.g. architecture)
-#object = #box + #other.				% things that can be acted upon by agents
+#object = {box1, box2, box3, box4, apple}.		% things that can be acted upon by agents
 #thing = #object + #agent. 				% things that are mobile
-#surf = #box + {floor}.					% things that have a surface
 #obj_w_zloc = #thing + #fixed_element.			% things that have a 3d location / coordinates 
+#surf = #box + {floor}.					% things that have a surface
 
 %% Properties
 #vertsz = 0..18. 					% units of length/distance
@@ -71,6 +71,7 @@ has_power(#agent, #power).
 has_weight(#thing, #weight).
 material(#surf, #substance).
 has_exit(#area, #exit).
+has_surface(#object, #bool). 
 
 holds(#fluent, #step).
 occurs(#action, #step).
@@ -205,14 +206,13 @@ holds(can_support(S,O),I) :- material(S,wood). % assume wood can support anythin
 % Executability Conditions
 
 % can only hold 1 object at a time
--occurs(move_to(R,O,S),T) :- occurs(move_to(R,O1,S),T),
-                             O1!=O.
+%-occurs(move_to(R,O,S),T) :- occurs(move_to(R,O1,S),T),
+%                             O1!=O.
 
 % can only pick up 1 object at a time
--occurs(pick_up(R,O),I) :- holds(in_hand(R,O1),I),
-                           O1!=O.
+-occurs(pick_up(R,O),I) :- holds(in_hand(R,O1),I).
 
--occurs(pick_up(R,O),I) :- holds(in_hand(R,O),I).
+%-occurs(pick_up(R,O),I) :- holds(in_hand(R,O),I).
 
 % can't move object not currently holding
 -occurs(move_to(R,O,S),I) :- not holds(in_hand(R,O),I).
@@ -222,7 +222,7 @@ holds(can_support(S,O),I) :- material(S,wood). % assume wood can support anythin
 -occurs(go_to(R,S),I) :- holds(on(R,S),I).
 
 % agent cannot go on top of an object it's currently holding
--occurs(go_to(R,B),I) :- holds(in_hand(R,B),I).
+%-occurs(go_to(R,B),I) :- holds(in_hand(R,B),I).
 % go_to object not possible if another agent is holding the object                                
 -occurs(go_to(A,S),I) :- holds(in_hand(A2,S),I).
 
@@ -463,7 +463,12 @@ affordance_permits(go_through(R,D,L), I, 26) :- holds(on(R,S),I),
 						HS<X+HD.
 
 
-
+%affordance_permits(go_to(A, S), I, 27) :- holds(z_loc(S,Z),I), 
+%                         		   holds(z_loc(A,Z2),I),
+%		            		   height(A,H),
+%  			    		   Z2-H= BASE,
+%                           		   Z > BASE-1, 
+%                           		   Z < BASE+1.
 
 %%%%%%%%%%%%%%
 %%% GROUND %%%
