@@ -253,7 +253,7 @@ holds(can_support(S, O), I) :- material(S, wood).
 -occurs(pick_up(A, O), I) :- not affordance_permits(pick_up(R, O), I, 11).
 
 % 3. 
--occurs(go_through(A, D, R), I) :- not affordance_permits(go_through(A, D, R), 26).
+-occurs(go_through(A, D, R), I) :- not affordance_permits(go_through(A, D, R), I, 26).
 
 % 4.
 -occurs(pick_up(A, O), I) :- has_weight(O, medium), 
@@ -261,7 +261,7 @@ holds(can_support(S, O), I) :- material(S, wood).
 
 % 5.
 -occurs(pick_up(A, O), I) :- has_weight(O, heavy), 
-                             not affordance_permits(pick_up(R, O), 10).
+                             not affordance_permits(pick_up(R, O), I, 10).
 
 % 6. pick up doesn't happen if item not in range + item too heavy for agent (example)
 -occurs(pick_up(A, O), I) :- not affordance_permits(pick_up(R, O), I, 11), 
@@ -278,12 +278,13 @@ holds(can_support(S, O), I) :- material(S, wood).
                            
 % 8. go_to doesn't happen unless permitted by range, and support.
 -occurs(go_to(A, S), I) :- not affordance_permits(go_to(A, S), I, 14), 
-                           not affordance_permits(go_to(A, S), I, 15). 
+                           not affordance_permits(go_to(A, S), I, 15),
+                           not affordance_permits(go_to(A, S), I, 16).
 
 % 9. go_through doesn't happen unless permitted by range, door + agent height, surface in range of door?
--occurs(go_through(A, E, L), I) :- not affordance_permits(go_through(A, E, L), I, ID), 
-                                   not affordance_permits(go_through(A, E, L), I, ID), 
-                                   not affordance_permits(go_through(A, E, L), I, ID). 
+-occurs(go_through(A, E, L), I) :- not affordance_permits(go_through(A, E, L), I, 17), 
+                                   not affordance_permits(go_through(A, E, L), I, 18), 
+                                   not affordance_permits(go_through(A, E, L), I, 19). 
 
 
 % I think I don't see a way for me to make complex affordances in this domain  - the ones I had before were 
@@ -377,93 +378,53 @@ affordance_permits(pick_up(A, O), I, 11) :- height(A, H), height(O, HO),
 affordance_permits(move_to(A, O, S), I, 12) :- holds(can_support(S, O), I).
 
 % 3. Aff. permits moving objects, if the target surface is within range of agents' reach (assumed to be the span of the agents body). 
-affordance_permits(move_to(A, O, S), I, 13) :- holds(in_range(S, R, X), 
-                                               height(A, H), 
+affordance_permits(move_to(A, O, S), I, 13) :- holds(in_range(S, R, X), I),
+                                               height(A, H), #vertsz(X),
                                                X < H, 
                                                X >= 0.
 
 % 4. Aff. permits going to surfaces, if they're not too high for the agent
-affordance_permits(go_to(A, S), I, 14) :- 
+affordance_permits(go_to(A, S), I, 14) :- holds(z_loc(S, Z), I), 
+                                          holds(z_loc(A, Z2), I), 
+                                          height(A, H), 
+                                          Z2 - H = BASE, 
+                                          Z <= BASE + 1. 
 
 % 5. Aff. permits going to surfaces, if they're not too low for the agent
-affordance_permits(go_to(A, S), I, 15) :- 
+affordance_permits(go_to(A, S), I, 15) :- holds(z_loc(S, Z), I), 
+                                          holds(z_loc(A, Z2), I),
+                                          height(A, H),
+                                          Z2 - H = BASE, 
+                                          Z >= BASE - 1.
 
 % 6. Aff. permits going to surfaces, if they can support the agent
-affordance_permits(go_to(A, S), I, 16) :-
+affordance_permits(go_to(A, S), I, 16) :- holds(can_support(S, A), I).
 
-% 7. Aff. permits going through openings that are in range of the agent
-affordance_permits(go_through(A, E, L), I, 17) :- 
+% 7. Aff. permits going through openings that are in range of the agent (assumed to have a movement range of 1)
+affordance_permits(go_through(A, E, L), I, 17) :- holds(in_range(A, E, X), I),
+                                                  #vertsz(X), 
+                                                  0 <=X, X<=1. 
+                                                  
+% 8. Aff. permits going through openings that are in range of the agent (assumed to have a movement range of 1)
+affordance_permits(go_through(A, E, L), I, 18) :- holds(in_range(E, A, X), I),
+                                                  0 <= X, X<=1. 
 
-% 8. Aff. permits going through openings that the agent can fit through
-affordance_permits(go_through(A, E, L), I, 18) :- 
+% 9. Aff. permits going through openings that the agent can fit through
+affordance_permits(go_through(A, E, L), I, 19) :- height(A, H), 
+                                                  height(E, H_exit),
+                                                  H <= H_exit.
 
-% 9. 
-
-
-% 2.
-% ID #17
-affordance_permits(pick_up(A, O), I, 17) :- height(A, H), height(O, HO), 
-                                            holds(in_range(O, R, X), I),
-                                            X < H,
-                                            X >=0.
-
-% 3. 
-% ID #25
-affordance_permits(go_through(A, D, L), I, 25) :- affordance_permits(go_to(A, S), ID),
-                                                  height(A, HA),
-                                                  height(D, HD), 
-                                                  height(S, HS),
-                                                  holds(in_range(D, S, X), I),
-                                                  HS + HA > X,
-                                                  HS < X + HD.
-
-% 4.
+% 10.
 % ID #26
 affordance_permits(go_through(A, D, L), I, 26) :- holds(on(A, S), I),
                                                   height(A, HA),
                                                   height(D, HD),
-                                                  height(s, HS),
+                                                  height(S, HS),
                                                   holds(in_range(D, S, X), I), 
                                                   HS + HR > X,
                                                   HS < X + HD.
                                                   
                                                   
-
-
-affordance_permits(move_to(A, O, S), I, 11) :- 
-
-% 7. move to doesn't happen if agent can't lift an object + agent can't move the obj. to the mentioned surface
-% Can't use aff_permits pick_up unless it talks about the weight of the object (not the range property). 
-% if this doesn't make sense, this could be replaced by 'can't move objects to surfaces you can't reach'
-% which is a pretty good alternative. 
--occurs(move_to(A, O, S), I) :- not affordance_permits(move_to(A, O, S), I, 11), 
-                                not affordance_permits(move_to(A, O, S), I, 12).
-                            
-                           
-% 8. go_to doesn't happen unless permitted by range, and support.
--occurs(go_to(A, S), I) :- not affordance_permits(go_to(A, S), I, ID), 
-                           not affordance_permits(go_to(A, S), I, ID). 
-
-% 9. go_through doesn't happen unless permitted by range, door + agent height, surface in range of door?
--occurs(go_through(A, E, L), I) :- not affordance_permits(go_through(A, E, L), I, ID), 
-                                   not affordance_permits(go_through(A, E, L), I, ID), 
-                                   not affordance_permits(go_through(A, E, L), I, ID). 
-
-
-% I think I don't see a way for me to make complex affordances in this domain  - the ones I had before were 
-% all I could come up with in the end, and they had a problem of doing the planning 
-% instead of the panning module itself. 
-% this is the issue with having multi-step plans, which involve the same objects and actions several times. 
-% i.e. I can't think of a legit compl. aff. in this scen. unless 
-
-
-% can't go stand on X unless permits by range, permits by support
-
-% can't move to X unless permits by support, 
-
-% can't sit on unless permits by range, permits by support
-
-% can't pick up unless permits by range, permits by weight
 
 %%------------------
 %% Initial Condition
