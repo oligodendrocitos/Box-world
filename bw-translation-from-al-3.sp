@@ -15,7 +15,7 @@
 %% 
 %% --------------------------------------------
 
-#const n=4.
+#const n=6.
 
 sorts
 
@@ -142,11 +142,7 @@ holds(in_hand(A, O), I+1) :- occurs(pick_up(A, O), I).
 
 % 11.
 -holds(z_loc(A, Z), I+1) :- occurs(go_to(A, S), I), 
-			    holds(z_loc(A, Z), I),
-			    holds(on(A, S1), I),
-			    holds(z_loc(S1, ZS1),I), 
-			    holds(z_loc(S, ZS), I),
-			    ZS!=ZS1.
+			    holds(z_loc(A, Z), I).
 
 
 
@@ -292,9 +288,7 @@ holds(can_support(S, O), I) :- material(S, wood).
 % way to include this variable in the head of the rule. 
 -occurs(go_through(A, E, L), I) :- not affordance_permits(go_through(A, E, L), I, 17), 
                                    not affordance_permits(go_through(A, E, L), I, 18), 
-                                   not affordance_permits(go_through(A, E, L), I, 19), 
-                                   not affordance_permits(go_through(A, E, L), I, 20),
-                                   not affordance_permits(go_through(A, E, L), I, 21).
+                                   not affordance_permits(go_through(A, E, L), I, 19).
                                    
 % 8.
 % Alternative to 8. go_through impossible, unless a surface 
@@ -441,19 +435,7 @@ affordance_permits(go_through(A, D, L), I, 26) :- holds(on(A, S), I),
                                                   holds(in_range(D, S, X), I), 
                                                   HS + HA > X,
                                                   HS < X + HD.
-                                                  
-
-
-
-                                                  
-% 11.
-% ID #20
-affordance_permits(go_through(A, D, L), I, 20) :- holds(in_range(D, A, X), I),
-                                                  X <= 1. 
-
-affordance_permits(go_through(A, D, L), I, 21) :- holds(in_range(A, D, X), I),
-                                                  X <= 1.                                                  
-                                                  
+                                                                                     
 
 %%------------------
 %% Initial Condition
@@ -493,11 +475,10 @@ holds(z_loc(floor,0),0).
 holds(z_loc(door,7),0).
 
 
-holds(on(box1,box3),0). 
+holds(on(box1,floor),0). 
 holds(on(box2,floor),0). 
 holds(on(box3,floor),0).
 holds(on(box4, floor),0). 
-%holds(on(apple, box4),0).
 holds(on(robot, floor),0).
 
 holds(location(robot, room),0).
