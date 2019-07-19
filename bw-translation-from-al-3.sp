@@ -241,6 +241,11 @@ holds(can_support(S, O), I) :- material(S, wood).
                            Z2 - H = BASE, 
                            Z > BASE + 1. 
                            
+% 11. 
+% forbid the agent from going to the same place
+-occurs(go_through(A, D, Loc2), I) :- holds(location(A, Loc1), I),
+				      Loc1=Loc2.                           
+                           
 %% ------------------------------
 %% Exec. conditions + affordances
 %% ------------------------------                   
@@ -266,12 +271,9 @@ holds(can_support(S, O), I) :- material(S, wood).
 % 5.
 % move_to impossible if target surface cannot support the obj. + 
 % target surface is out of agents' reach. 
-% potentially, agent being able to lift the object can be added
-% as a clause, but would that be helpful? 
 -occurs(move_to(A, O, S), I) :- not affordance_permits(move_to(A, O, S), I, 12), 
                                 not affordance_permits(move_to(A, O, S), I, 13).
-                            
-                           
+                                                      
 % 6. 
 % go_to impossible unless target surface is within agents'
 % movement range, and can support the agents' weight.
@@ -283,15 +285,12 @@ holds(can_support(S, O), I) :- material(S, wood).
 % go_through impossible unless there's a surface within range
 % of the opening + agents' height allows them to fit through
 % the opening. 
-% N.B. this should have an additional constraint: the surface
-% should be able to support the agent. However, I don't see a 
-% way to include this variable in the head of the rule. 
 -occurs(go_through(A, E, L), I) :- not affordance_permits(go_through(A, E, L), I, 17), 
                                    not affordance_permits(go_through(A, E, L), I, 18), 
                                    not affordance_permits(go_through(A, E, L), I, 19).
                                    
 % 8.
-% Alternative to 8. go_through impossible, unless a surface 
+% Alternative to 7 and 9. go_through impossible, unless a surface 
 % exists within appropriate range of the opening + 
 % the surface can support the agent
 % the agent can fit through the door.
@@ -305,18 +304,7 @@ holds(can_support(S, O), I) :- material(S, wood).
 % go_through impossible unless the opening is within agents' movement range (reach). 
 % 26 remains the same as it was in the previous verison of the program. 
 -occurs(go_through(A, D, R), I) :- not affordance_permits(go_through(A, D, R), I, 26).
-
-
-
-% I think I don't see a way for me to make complex affordances in this domain  - the ones I had before were 
-% all I could come up with in the end, and they had a problem of doing the planning 
-% instead of the panning module itself. 
-% this is the issue with having multi-step plans, which involve the same objects and actions several times. 
-% i.e. I can't think of a legit compl. aff. in this scen. unless 
-
-% 5 - combine 10+11
-% trivial
-% 8 
+                                   %not affordance_permits(go_through(A, E, L), I, 19).
                              
 
 %%---------------------------------------------------------
@@ -386,33 +374,39 @@ affordance_permits(pick_up(A, O), I, 11) :- height(A, H), height(O, HO),
                                             X >=0.
 
 
-% 3. Aff. permits moving objects, is the surface supports them.
+% 3.
+% Aff. permits moving objects, if the target surface supports them.
 affordance_permits(move_to(A, O, S), I, 12) :- holds(can_support(S, O), I).
 
-% 3. Aff. permits moving objects, if the target surface is within range of agents' reach (assumed to be the span of the agents body). 
+% 4. 
+% Aff. permits moving objects, if the target surface is within range of agents' reach (assumed to be the span of the agents body). 
 affordance_permits(move_to(A, O, S), I, 13) :- holds(in_range(S, A, X), I),
                                                height(A, H), #vertsz(X),
                                                X < H, 
                                                X >= 0.
 
-% 4. Aff. permits going to surfaces, if they're not too high for the agent.
+% 5. 
+%Aff. permits going to surfaces, if they're not too high for the agent.
 affordance_permits(go_to(A, S), I, 14) :- holds(z_loc(S, Z), I), 
                                           holds(z_loc(A, Z2), I), 
                                           height(A, H), 
                                           Z2 - H = BASE, 
                                           Z <= BASE + 1. 
 
-% 5. Aff. permits going to surfaces, if they're not too low for the agent.
+% 6. 
+% Aff. permits going to surfaces, if they're not too low for the agent.
 affordance_permits(go_to(A, S), I, 15) :- holds(z_loc(S, Z), I), 
                                           holds(z_loc(A, Z2), I),
                                           height(A, H),
                                           Z2 - H = BASE, 
                                           Z >= BASE - 1.
 
-% 6. Aff. permits going to surfaces, if they can support the agent.
+% 7. 
+% Aff. permits going to surfaces, if they can support the agent.
 affordance_permits(go_to(A, S), I, 16) :- holds(can_support(S, A), I).
 
-% 7 & 8. Aff. permits going through an opening if there's a surface within 1 unit of the opening. 
+% 8 & 9. 
+% Aff. permits going through an opening if there's a surface within 1 unit of the opening. 
 affordance_permits(go_through(A, Opening, L), I, 17) :- holds(in_range(Opening, S, X), I), 
                                                         #surf(S),
                                                         X<=1, 0<=X. 
@@ -421,13 +415,13 @@ affordance_permits(go_through(A, Opening, L), I, 18) :- holds(in_range(S, Openin
                                                         #surf(S),
                                                         X<=1, 0<=X. 
 
-% 9. Aff. permits going through openings that the agent can fit through.
+% 10. Aff. permits going through openings that the agent can fit through.
 affordance_permits(go_through(A, E, L), I, 19) :- height(A, H), 
                                                   height(E, H_exit),
                                                   H <= H_exit.
 
-% 10.
-% ID #26
+% 11.
+% ID #26 Aff. permits going through openings that are within agents' movement range (assumed to be equal to agents' height).
 affordance_permits(go_through(A, D, L), I, 26) :- holds(on(A, S), I),
                                                   height(A, HA),
                                                   height(D, HD),
@@ -435,7 +429,7 @@ affordance_permits(go_through(A, D, L), I, 26) :- holds(on(A, S), I),
                                                   holds(in_range(D, S, X), I), 
                                                   HS + HA > X,
                                                   HS < X + HD.
-                                                                                     
+                                                  %affordance_permits(go_to(A, S), I, 16)                                    
 
 %%------------------
 %% Initial Condition
@@ -487,17 +481,19 @@ holds(location(robot, room),0).
 % Queries:
 
 
-% Goals:
-%goal(I) :- holds(z_loc(robot, 6), I).
+% Execution Goals:
+holds(z_loc(box5,13),3)
 %goal(I) :- holds(z_loc(box2, 3), I).
 goal(I) :- holds(location(robot, corridor), I).
 %goal(I) :- holds(on(box3, box1), I).
+
 
 
 display
 
 goal.
 occurs.
+affordance_permits. 
 %holds.
 
 
