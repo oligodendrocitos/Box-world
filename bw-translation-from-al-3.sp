@@ -15,7 +15,7 @@
 %% 
 %% --------------------------------------------
 
-#const n=6.
+#const n=9.
 
 sorts
 
@@ -35,6 +35,7 @@ sorts
 #vertsz = 0..15.
 #step = 0..n.
 #id = 10..30.
+#bool = {true, false}.
 
 
 #substance = {paper, cardboard, wood, bio}.
@@ -51,7 +52,7 @@ sorts
 		   in_hand(#agent, #object).
 
 #defined_fluent = in_range(#obj_w_zloc, #obj_w_zloc, #vertsz) + 
-		  can_support(#surf, #thing).
+		  can_support(#obj_w_zloc(X), #thing(Y)):X!=Y.
 
 #fluent = #inertial_fluent + #defined_fluent.
 
@@ -59,8 +60,8 @@ sorts
 %% Actions 
 %%--------
 
-#action = go_to(#agent, #surf) +
-          move_to(#agent, #object(X), #surf(Y)):X!=Y +
+#action = go_to(#agent, #obj_w_zloc) +
+          put_down(#agent, #object(X), #obj_w_zloc(Y)):X!=Y +
           go_through(#agent, #exit, #area) +
           pick_up(#agent, #object). 
           
@@ -77,7 +78,8 @@ occurs(#action, #step).
 height(#obj_w_zloc, #vertsz).
 has_power(#agent, #power).
 has_weight(#thing, #weight).
-material(#surf, #substance).
+has_surf(#obj_w_zloc, #bool).
+material(#obj_w_zloc, #substance).
 
 has_exit(#area, #exit). 
 
@@ -107,10 +109,10 @@ rules
 holds(on(A, S), I+1) :- occurs(go_to(A, S), I).
 
 % 2. 
-holds(on(O, S), I+1) :- occurs(move_to(A, O, S), I).
+holds(on(O, S), I+1) :- occurs(put_down(A, O, S), I).
 
 % 3. 
--holds(in_hand(A, O), I+1) :- occurs(move_to(A, O, S), I).
+-holds(in_hand(A, O), I+1) :- occurs(put_down(A, O, S), I).
 
 % 4. 
 holds(z_loc(A, Z+H), I+1) :- occurs(go_to(A, S), I),
@@ -121,26 +123,30 @@ holds(z_loc(A, Z+H), I+1) :- occurs(go_to(A, S), I),
 holds(location(A, L), I+1) :- occurs(go_through(A, D, L), I).
 
 % 6. 
-holds(z_loc(O, Z+H), I+1) :- occurs(move_to(A, O, S), I),  
+% Assume agent ends up on the floor if location is changed
+holds(on(A, floor), I+1) :- occurs(go_through(A, D, L), I).
+
+% 7. 
+holds(z_loc(O, Z+H), I+1) :- occurs(put_down(A, O, S), I),  
 			     holds(z_loc(S, Z), I), 
 			     height(O, H).
 
-% 7.
+% 8.
 holds(in_hand(A, O), I+1) :- occurs(pick_up(A, O), I).
 
-% 8.
+% 9.
 -holds(on(O, S), I+1) :- occurs(pick_up(A, O), I),
 			 holds(on(O, S), I).
 
-% 9. 
+% 10. 
 -holds(z_loc(O, Z), I+1) :- occurs(pick_up(A, O), I), 
 			    holds(z_loc(O, Z), I).
 
-% 10.
+% 11.
 -holds(on(A, S), I+1) :- occurs(go_to(A, S2), I),
 			 holds(on(A, S), I). 
 
-% 11.
+% 12.
 -holds(z_loc(A, Z), I+1) :- occurs(go_to(A, S), I), 
 			    holds(z_loc(A, Z), I).
 
@@ -205,7 +211,7 @@ holds(can_support(S, O), I) :- material(S, wood).
 -occurs(pick_up(A, O), I) :- holds(in_hand(A, O2), I).
 
 % 2.
--occurs(move_to(A, O, S), I) :- not holds(in_hand(A, O), I).
+-occurs(put_down(A, O, S), I) :- not holds(in_hand(A, O), I).
 
 % 3.
 -occurs(go_to(A, S), I) :- holds(on(A, S), I).
@@ -217,7 +223,7 @@ holds(can_support(S, O), I) :- material(S, wood).
 -occurs(go_to(A, S), I) :- holds(on(O, S), I), #box(S). 
 
 % 6.
--occurs(move_to(A, O, S), I) :- holds(on(O2, S), I), #box(S).
+-occurs(put_down(A, O, S), I) :- holds(on(O2, S), I), #box(S).
 
 % 7.
 -occurs(go_through(A, D, Loc2), I) :- not holds(location(A, Loc1), I),
@@ -244,7 +250,26 @@ holds(can_support(S, O), I) :- material(S, wood).
 % 11. 
 % forbid the agent from going to the same place
 -occurs(go_through(A, D, Loc2), I) :- holds(location(A, Loc1), I),
-				      Loc1=Loc2.                           
+				      Loc1=Loc2.        
+% 12.
+-occurs(go_to(A,S),I) :- holds(on(A,S2),I),
+			 S=S2.
+				      
+% 13. can't go to objects in other rooms 
+-occurs(go_to(A, S), I) :- holds(location(A, Loc1), I),
+                           holds(location(S, Loc2), I),
+                           Loc1 != Loc2.
+
+% 14. can't move to objects in other rooms
+-occurs(go_to(A, O, S), I) :- holds(location(A, Loc1), I),
+                              holds(location(S, Loc2), I),
+                              Loc1 != Loc2.
+
+% 15. can't pick up objects in other rooms
+-occurs(pick_up(A, O), I) :- holds(location(A, Loc1), I),
+                             holds(location(O, Loc2), I),
+                             Loc1 != Loc2.
+				                         
                            
 %% ------------------------------
 %% Exec. conditions + affordances
@@ -269,10 +294,10 @@ holds(can_support(S, O), I) :- material(S, wood).
                              not affordance_permits(pick_up(A, O), I, 10).
 
 % 5.
-% move_to impossible if target surface cannot support the obj. + 
+% put_down impossible if target surface cannot support the obj. + 
 % target surface is out of agents' reach. 
--occurs(move_to(A, O, S), I) :- not affordance_permits(move_to(A, O, S), I, 12), 
-                                not affordance_permits(move_to(A, O, S), I, 13).
+-occurs(put_down(A, O, S), I) :- not affordance_permits(put_down(A, O, S), I, 12), 
+                                not affordance_permits(put_down(A, O, S), I, 13).
                                                       
 % 6. 
 % go_to impossible unless target surface is within agents'
@@ -376,11 +401,11 @@ affordance_permits(pick_up(A, O), I, 11) :- height(A, H), height(O, HO),
 
 % 3.
 % Aff. permits moving objects, if the target surface supports them.
-affordance_permits(move_to(A, O, S), I, 12) :- holds(can_support(S, O), I).
+affordance_permits(put_down(A, O, S), I, 12) :- holds(can_support(S, O), I).
 
 % 4. 
 % Aff. permits moving objects, if the target surface is within range of agents' reach (assumed to be the span of the agents body). 
-affordance_permits(move_to(A, O, S), I, 13) :- holds(in_range(S, A, X), I),
+affordance_permits(put_down(A, O, S), I, 13) :- holds(in_range(S, A, X), I),
                                                height(A, H), #vertsz(X),
                                                X < H, 
                                                X >= 0.
@@ -408,11 +433,11 @@ affordance_permits(go_to(A, S), I, 16) :- holds(can_support(S, A), I).
 % 8 & 9. 
 % Aff. permits going through an opening if there's a surface within 1 unit of the opening. 
 affordance_permits(go_through(A, Opening, L), I, 17) :- holds(in_range(Opening, S, X), I), 
-                                                        #surf(S),
+                                                        has_surf(S, true),
                                                         X<=1, 0<=X. 
 
 affordance_permits(go_through(A, Opening, L), I, 18) :- holds(in_range(S, Opening, X), I), 
-                                                        #surf(S),
+                                                        has_surf(S, true),
                                                         X<=1, 0<=X. 
 
 % 10. Aff. permits going through openings that the agent can fit through.
@@ -442,13 +467,26 @@ material(box1, paper).
 material(box2, wood).
 material(box3, wood).
 material(box4, wood).
+material(box5, wood).
 material(floor, wood).
+
+has_surf(box1, true).
+has_surf(box2, true).
+has_surf(box3, true).
+has_surf(box4, true).
+has_surf(box5, true).
+has_surf(floor, true).
+has_surf(apple, false).
+has_surf(door, false).
+
 
 has_weight(box1, light).
 has_weight(box2, medium).
 has_weight(box3, medium).
 has_weight(box4, heavy).
+has_weight(box5, medium).
 has_weight(robot, medium). 
+has_weight(apple, light).
 
 has_power(robot, strong). 
 
@@ -460,6 +498,7 @@ height(box1, 1).
 height(box2, 1). 
 height(box3, 1).
 height(box4, 3).
+height(box5, 1).
 
 height(door, 3).
 height(apple, 1).
@@ -473,27 +512,38 @@ holds(on(box1,floor),0).
 holds(on(box2,floor),0). 
 holds(on(box3,floor),0).
 holds(on(box4, floor),0). 
+holds(on(box5, floor), 0).
 holds(on(robot, floor),0).
 
 holds(location(robot, room),0).
+%holds(location(box1, corridor), 0).
+holds(location(box1, room), 0).
+holds(location(box2, room), 0).
+holds(location(box3, room), 0).
+%holds(location(box4, corridor), 0).
+holds(location(box4, room), 0).
+holds(location(box5, corridor), 0).
+holds(location(apple, corridor), 0).
+%holds(on(apple, box5), 0).
+%holds(location
 
 
 % Queries:
 
 
-% Execution Goals:
-holds(z_loc(box5,13),3)
+% Goals:
+%goal(I) :- holds(z_loc(robot, 6), I).
 %goal(I) :- holds(z_loc(box2, 3), I).
-goal(I) :- holds(location(robot, corridor), I).
+%goal(I) :- holds(location(robot, corridor), I).
 %goal(I) :- holds(on(box3, box1), I).
-
+goal(I) :- holds(in_hand(robot, box5), I).
 
 
 display
 
 goal.
 occurs.
-affordance_permits. 
+%affordance_permits. 
 %holds.
 
 
