@@ -48,7 +48,7 @@ def pick_goal(set):
     g = g[:-1]  # remove comma
     g = list(g)  # convert to list
     g[-2] = 'I'  # insert chosen horizon value
-    goal_str = ''.join(goal)  # create line to be inserted
+    goal_str = ''.join(g)  # create line to be inserted
     return goal_str
 
 
@@ -73,7 +73,7 @@ def set_goal(inFile, outFile, goal):
     line_num = find_lineID(g_flag, lines)
 
     # Add goal and save program
-    lines[line_num[0] + 1] = goal + '\n'
+    lines[line_num[0] + 1] = 'goal(I):-' + goal + '.' + '\n'
 
     with open(outFile, 'w') as prog:
         prog.writelines(lines)
