@@ -1,3 +1,16 @@
+%% --------------------------------------------
+%% BW domain
+%% An initial version of the BW domain with 
+%% forbidding affordances which specify very  
+%% basic agent / object criteria for a given 
+%% action.
+%% Includes a simple planning module.
+%% 
+%% Includes three actions : pick_up action 
+%% produced some nonsensical actions, and
+%% the design needs to be corrected. 
+%% --------------------------------------------
+
 #const n=4.
 
 %%%%%%%%%%%%%
