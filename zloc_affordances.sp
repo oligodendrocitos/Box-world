@@ -6,12 +6,12 @@
 %% action.
 %% Includes a simple planning module.
 %% 
-%% Includes three actions : pick_up action 
-%% produced some nonsensical actions, and
-%% the design needs to be corrected. 
+%% The pick_up action has been added and 
+%% the errors resolved. 
 %% --------------------------------------------
 
-#const n=4.
+
+#const n=7.
 
 %%%%%%%%%%%%%
 %%% SORTS %%%
@@ -27,7 +27,7 @@ sorts
 #static_obj = {floor, door}. 
 #thing = #box + #robot. 
 #object = #box.
-#surf = #box + #static_obj.
+#surf = #box + {floor}.
 %% Things that have a 3d location:. 
 #obj_w_zloc = #thing + #static_obj.
 
@@ -45,7 +45,7 @@ sorts
 %%% fluents %%%
 %%%%%%%%%%%%%%%
 
-#inertial_fluent = on(#thing(X), #surf(Y)):X!=Y + z_loc(#obj_w_zloc, #vertsz) + location(#thing, #domain).
+#inertial_fluent = on(#thing(X), #surf(Y)):X!=Y + z_loc(#obj_w_zloc, #vertsz) + location(#thing, #domain) + in_hand(#robot, #object).
 
 #def_fluent = in_range(#obj_w_zloc, #robot).
 
@@ -57,9 +57,10 @@ sorts
 
 #action = go_to(#robot, #surf) +
           move_to(#robot, #object(X), #surf(Y)):X!=Y+
-          go_through(#robot, #opening, #domain). 
+          go_through(#robot, #opening, #domain) +
+          pick_up(#robot, #object). 
 
-% go through includes the target location as it's currently the easiest way for me to specify locations without the door malarky
+% go through includes the target location as it's the easiest way for me to specify this action without additional changes
 
 
 
@@ -109,6 +110,9 @@ holds(on(R,S),I+1) :- occurs(go_to(R,S),I).
 % move_to (X, Y), causes on(X, Y)
 holds(on(O,S),I+1):- occurs(move_to(R,O,S),I).
 
+% move_to causes the moved object to be released
+-holds(in_hand(R,O),I+1):- occurs(move_to(R,O,S),I).
+
 % go_to causes z_loc to change
 holds(z_loc(R,Z+H),I+1) :- occurs(go_to(R,S),I),
                            height(R,H),
@@ -121,6 +125,9 @@ holds(z_loc(O,Z+H),I+1) :- occurs(move_to(R,O,S),I),
 
 % go_through the door causes the robot to be in room2.
 holds(location(R,L),I+1) :- occurs(go_through(R,D,L),I).
+
+% pick_up causes in_hand 
+holds(in_hand(R,O), I+1) :- occurs(pick_up(R,O),I).
 
 
            
@@ -165,25 +172,32 @@ holds(in_range(O,R),I) :- holds(z_loc(O,LO),I),
 % things can be in only one room at a time. This shouldn't be necessary. 
 -holds(location(X,L),I) :- holds(location(X,L2),I), L!=L2.
 
-
+% can only hold 1 object at a time
+-occurs(move_to(R,O,S),T) :- occurs(move_to(R,O1,S),T),
+                             O1!=O.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 % Executability Conditions
 
-% can only move 1 object at a time
--occurs(move_to(R,O,S),T) :- occurs(move_to(R,O1,S),T),
-                             O1!=O.
+% can only pick up 1 object at a time
+-occurs(pick_up(R,O),I) :- holds(in_hand(R,O1),I),
+                           O1!=O.
 
-% can't move objects which are out of reach
--occurs(move_to(R,O,S),T) :- not holds(in_range(O,R),T).
+% can't pick up objects which are out of reach
+-occurs(pick_up(R,O),I) :- not holds(in_range(O,R),I).
 
+% can't move object not holding
+-occurs(move_to(R,O,S),I) :- not holds(in_hand(R,O),I).
 
 % Going to / moving to the current location results in nothing
--occurs(move_to(R,O,S),I) :- holds(on(O,S),I).
+%-occurs(move_to(R,O,S),I) :- holds(on(O,S),I).
 -occurs(go_to(R,S),I) :- holds(on(R,S),I).
 
-% an object can't be moved if something's on top of it
--occurs(move_to(R,O,S),I) :- holds(on(O2, O), I).
+% robot cannot go on top of an object it's currently holding
+-occurs(go_to(R,B),I) :- holds(in_hand(R,B),I).
+
+% an object can't be picked_up if something's on top of it
+-occurs(pick_up(R,O),I) :- holds(on(O2, O), I).
 
 % not possible to move/go_to an occupied location
 -occurs(go_to(R,O),I) :- holds(on(O2, O), I),
@@ -194,7 +208,7 @@ holds(in_range(O,R),I) :- holds(z_loc(O,LO),I),
                              #box(S).
 
 % go_through possible only if the opening is in the room the robot is in, and in movement range
--occurs(go_through(R,D,L2),I) :- not holds(location(R,L1),I),
+-occurs(go_through(R,D,L2),I) :- not holds(location(R,L1),I),	
                                  not has_exit(L1,D),
                                  not has_exit(L2,D).
 
@@ -202,8 +216,8 @@ holds(in_range(O,R),I) :- holds(z_loc(O,LO),I),
 
 
 -occurs(go_to(R,S),I) :- affordance_forbids(go_to(R,S),ID).
--occurs(move_to(R,O,S),T) :- affordance_forbids(move_to(R,O,S),ID).
-%-occurs(go_to(R,S),T) :- not affordance_permits(go_to(R,S),ID).
+-occurs(pick_up(R,O,S),T) :- affordance_forbids(pick_up(R,O,S),ID).
+-occurs(move_to(R,O,S),T) :- affordance_forbids(move_to(R,S),ID).
 
 % general affordance rules?
 -occurs(A,I) :- affordance_forbids(A,ID).
@@ -279,15 +293,28 @@ holds(F,0) :- obs(F, B, 0).
 %%% Affordances %%%
 %%%%%%%%%%%%%%%%%%%
 
-% robot can't move heavy objects
-affordance_forbids(move_to(R,O,S), 10) :- weight(O, heavy).
+% robot can't pick up heavy objects
+affordance_forbids(pick_up(R,O), 10) :- weight(O, heavy).
 % A heavy robot can't be suppoerted by a paper box
 affordance_forbids(go_to(R,S), 11) :- weight(R,heavy), material(S,paper).
 % A paper box can't support a heavy object
 affordance_forbids(move_to(R,O,S), 12) :- weight(O,heavy), material(S,paper).
+% Something can't be moved if it can't be picked up
+affordance_forbids(move_to(R,O,S), 14) :- affordance_forbids(pick_up(R,O), ID).
 
 % A robot can't go to a structure that cannot support it
 affordance_forbids(go_to(R,S), 13) :- can_support(S, R, false).
+
+% affordance permits picking up things that are light 
+
+% affordance permits moving objects that can be picked up
+
+% affordance permits going to objects that can support the robot
+
+% affordance permits going through the door if there are enough stackable objects in the domain that can support the robots weight?
+% if there's a surface at the appropriate height that can support the robot
+% if such a surface can be constructed. 
+
 
 
 
@@ -327,8 +354,11 @@ holds(z_loc(door,5),0).
 holds(on(box1,box3),0). holds(on(box2,floor),0). holds(on(box3,floor),0).
 holds(on(bot, floor),0).
 
-goal(I) :- holds(z_loc(bot,6), I). % this should be impossible with two wooden and one paper box
-%goal(I) :- holds(location(bot,room2), I). 
+%goal(I) :- holds(z_loc(bot,5), I). % this should be impossible with two wooden and one paper box if height =3 
+
+goal(I) :- holds(location(bot,room2), I). 
+%goal(I) :- holds(in_hand(bot,box1), I). 
+%goal(I) :- holds(on(box1, box2), I). 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -338,7 +368,7 @@ occurs.
 goal.
 holds.
 %-holds.
-can_support.
+%can_support.
  
  
  
