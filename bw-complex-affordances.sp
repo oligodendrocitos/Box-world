@@ -1,3 +1,14 @@
+%% --------------------------------------------
+%% BW domain
+%% Initial sketch of complex affordances. 
+%% The domain hasn't been expressed in AL
+%% and the actions contain some incinsistencies. 
+%% The affordance relations are performing reasoning
+%% which is automatically done by the planning 
+%% module. 
+%% 
+%% --------------------------------------------
+
 #const n=8.
 
 %%%%%%%%%%%%%
@@ -205,14 +216,8 @@ holds(can_support(S,O),I) :- material(S,wood). % assume wood can support anythin
 %%%%%%%%%%%%%%%%%%%%%%%%%%
 % Executability Conditions
 
-% can only hold 1 object at a time
-%-occurs(move_to(R,O,S),T) :- occurs(move_to(R,O1,S),T),
-%                             O1!=O.
-
 % can only pick up 1 object at a time
 -occurs(pick_up(R,O),I) :- holds(in_hand(R,O1),I).
-
-%-occurs(pick_up(R,O),I) :- holds(in_hand(R,O),I).
 
 % can't move object not currently holding
 -occurs(move_to(R,O,S),I) :- not holds(in_hand(R,O),I).
@@ -394,13 +399,6 @@ affordance_permits(pick_up(R,O), I, 17) :- height(R,H), height(O,HO),
 					   X>=0.
 % check if this will work if not forbid
 
-% CONT HERE
-% Exec. Cond. 
-% Same fo moving to other surfaces - 1 unit from the 'feet' is the limit.
-%affordance_permits(go_to(R,S), I, 24) :- height(R,H), height(O,HO),
-%                                         holds(in_range(R,S,X),I),
-%					 X<H,
-%					 X>=0.
 
 % General Case
 % affordance permits moving objects that can be picked up.
