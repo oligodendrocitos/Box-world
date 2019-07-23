@@ -1,3 +1,16 @@
+%% --------------------------------------------
+%% BW domain
+%% An initial version of the BW domain with 
+%% tho actions and two fluents. 
+%% Includes a simple planning module.
+%% 
+%% The z coordinates of objects are represented
+%% as inertial fluents. This ensures their inclusion
+%% in planning, however the values need to be 
+%% updated with an explicit rule which cancels
+%% their values. 
+%% --------------------------------------------
+
 #const n=1.
 
 %%%%%%%%%%%%%
