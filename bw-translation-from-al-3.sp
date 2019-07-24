@@ -22,15 +22,15 @@ sorts
 #area = {room, corridor}.
 #exit = {door}.
 
-#box = {box1, box2, box3, box4, box5}.
-#other = {apple}.
+%#box = {box1, box2, box3, box4, box5}.
+%#other = {apple}.
 #agent = {robot}.  %, human}.
 #fixed_element = {floor, door}.
-#object = #box + #other.
+#object = {box1, box2, box3, box4, box5, apple}.
 #thing = #object + #agent.
 
 #obj_w_zloc = #thing + #fixed_element.
-#surf = #box+{floor}.
+%#surf = #box+{floor}.
 
 #vertsz = 0..15.
 #step = 0..n.
@@ -46,7 +46,7 @@ sorts
 %% Fluents
 %%--------
 
-#inertial_fluent = on(#thing(X), #surf(Y)):X!=Y +
+#inertial_fluent = on(#thing(X), #obj_w_zloc(Y)):X!=Y +
 		   z_loc(#obj_w_zloc, #vertsz) + 
 		   location(#thing, #area) + 
 		   in_hand(#agent, #object).
@@ -157,7 +157,7 @@ holds(in_hand(A, O), I+1) :- occurs(pick_up(A, O), I).
 %% --------------------
 
 % 1. 
--holds(on(O, S), I) :- holds(on(O2, S), I), O!=O2, #box(S).
+-holds(on(O, S), I) :- holds(on(O2, S), I), O!=O2, #object(S).
 
 % 2. 
 holds(z_loc(O, Z+H), I) :- holds(on(O, S), I), 
@@ -202,6 +202,9 @@ holds(can_support(S, O), I) :- material(S, wood).
 -holds(can_support(S, O), I) :- holds(on(S, S2), I), 
                                 not holds(can_support(S2, O), I).
 
+% 12. impossible to be on something that doesn't have a surface
+-holds(on(X, Y),I) :- not has_surf(Y, true). 
+
 
 %% ----------------------------
 %% III Executability Conditions
@@ -220,10 +223,10 @@ holds(can_support(S, O), I) :- material(S, wood).
 -occurs(pick_up(A, O), I) :- holds(on(O2, O), I).
 
 % 5.
--occurs(go_to(A, S), I) :- holds(on(O, S), I), #box(S). 
+-occurs(go_to(A, S), I) :- holds(on(O, S), I), #object(S). 
 
 % 6.
--occurs(put_down(A, O, S), I) :- holds(on(O2, S), I), #box(S).
+-occurs(put_down(A, O, S), I) :- holds(on(O2, S), I), #object(S).
 
 % 7.
 -occurs(go_through(A, D, Loc2), I) :- not holds(location(A, Loc1), I),
@@ -260,8 +263,8 @@ holds(can_support(S, O), I) :- material(S, wood).
                            holds(location(S, Loc2), I),
                            Loc1 != Loc2.
 
-% 14. can't move to objects in other rooms
--occurs(go_to(A, O, S), I) :- holds(location(A, Loc1), I),
+% 14. can't put objects on surfaces in other rooms
+-occurs(put_down(A, O, S), I) :- holds(location(A, Loc1), I),
                               holds(location(S, Loc2), I),
                               Loc1 != Loc2.
 
@@ -524,7 +527,7 @@ holds(location(box3, room), 0).
 holds(location(box4, room), 0).
 holds(location(box5, corridor), 0).
 holds(location(apple, corridor), 0).
-%holds(on(apple, box5), 0).
+holds(on(apple, box5), 0).
 %holds(location
 
 
@@ -536,6 +539,7 @@ holds(location(apple, corridor), 0).
 %goal(I) :- holds(z_loc(box2, 3), I).
 %goal(I) :- holds(location(robot, corridor), I).
 %goal(I) :- holds(on(box3, box1), I).
+% Execution Goal
 goal(I) :- holds(in_hand(robot, box5), I).
 
 
