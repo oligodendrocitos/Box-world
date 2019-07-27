@@ -93,7 +93,7 @@ affordance_forbids(#action, #step, #id).
 success().
 goal(#step). 
 something_happened(#step).
-
+plan_length(#step).
 
 %%-----------------------------------------------------------
 %%                         Rules
@@ -368,7 +368,7 @@ success :- goal(I),
 :- not success.
 
 % an action must occur at each step
-occurs(A,I) | -occurs(A,I) :- not goal(I).
+occurs(A,I) :+ not goal(I).
 
 % do not allow concurrent actions
 :- occurs(A1, I),
@@ -379,11 +379,30 @@ occurs(A,I) | -occurs(A,I) :- not goal(I).
 something_happened(I) :- occurs(A,I).
 
 :- not something_happened(I),
-   something_happened(I+1).
+   not goal(I).
 
-:- goal(I), goal(I-1),
-   J < I,
-   not something_happened(J).
+plan_length(I) :- not goal(I-1), goal(I).
+%success :- goal(I),
+%           I <= n. 
+%:- not success.
+
+% an action must occur at each step
+%occurs(A,I) | -occurs(A,I) :- not goal(I).
+
+% do not allow concurrent actions
+%:- occurs(A1, I),
+%   occurs(A2, I),
+%   A1!=A2.
+
+% forbid agents from procrastinating
+%something_happened(I) :- occurs(A,I).
+
+%:- not something_happened(I),
+%   something_happened(I+1).
+
+%:- goal(I), goal(I-1),
+%   J < I,
+%   not something_happened(J).
    
    
 %% ------------------------------------------------------------
@@ -545,6 +564,7 @@ goal(I) :- holds(in_hand(robot, box5), I).
 
 display
 
+plan_length.
 goal.
 occurs.
 %affordance_permits. 
