@@ -26,7 +26,7 @@ sorts
 %#other = {apple}.
 #agent = {robot}.  %, human}.
 #fixed_element = {floor, door}.
-#object = {box1, box2, box3, box4, box5, apple}.
+#object = {box1, box2, box3, box4, box5, cup}.
 #thing = #object + #agent.
 
 #obj_w_zloc = #thing + #fixed_element.
@@ -37,7 +37,7 @@ sorts
 #id = 10..30.
 #bool = {true, false}.
 
-
+%% VARIABLE PARAMETERS
 #substance = {paper, cardboard, wood, bio}.
 #power = {weak, strong}.
 #weight = {light, medium, heavy}.
@@ -498,7 +498,7 @@ has_surf(box3, true).
 has_surf(box4, true).
 has_surf(box5, true).
 has_surf(floor, true).
-has_surf(apple, false).
+has_surf(cup, false).
 has_surf(door, false).
 
 
@@ -508,7 +508,7 @@ has_weight(box3, medium).
 has_weight(box4, heavy).
 has_weight(box5, medium).
 has_weight(robot, medium). 
-has_weight(apple, light).
+has_weight(cup, light).
 
 has_power(robot, strong). 
 
@@ -523,7 +523,7 @@ height(box4, 3).
 height(box5, 1).
 
 height(door, 3).
-height(apple, 1).
+height(cup, 1).
 
 
 holds(z_loc(floor,0),0).
@@ -546,7 +546,7 @@ holds(location(box3, room), 0).
 holds(location(box4, room), 0).
 holds(location(box5, corridor), 0).
 holds(location(apple, corridor), 0).
-holds(on(apple, box5), 0).
+holds(on(cup, box5), 0).
 %holds(location
 
 
