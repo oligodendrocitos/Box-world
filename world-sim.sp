@@ -9,6 +9,8 @@
 %% hpd: actions that actually happen
 %% possible: actions that are possible (ground truth).
 %% 
+%% Init. conditions added from the complete
+%% knowledge domain. 
 %% --------------------------------------------
 
 #const n=9.
@@ -18,15 +20,12 @@ sorts
 #area = {room, corridor}.
 #exit = {door}.
 
-%#box = {box1, box2, box3, box4, box5}.
-%#other = {apple}.
 #agent = {robot}.  %, human}.
 #fixed_element = {floor, door}.
 #object = {box1, box2, box3, box4, box5, cup}.
 #thing = #object + #agent.
 
 #obj_w_zloc = #thing + #fixed_element.
-%#surf = #box+{floor}.
 
 #vertsz = 0..15.
 #step = 0..n.
@@ -107,6 +106,9 @@ rules
 %%---------------
 %% I Causal Laws
 %%---------------
+
+%% In this section, occurs is replaced by hpd
+%% to  
 
 % 1.
 holds(on(A, S), I+1) :- hpd(go_to(A, S), I).
@@ -377,31 +379,14 @@ possible(A,I) :- not -possible(A,I).
 %%---------------------------------------------------------
 
 
-%success :- goal(I),
-%           I <= n. 
-%:- not success.
-
-% an action must occur at each step
-%occurs(A,I) :- not goal(I).
--goal(I) :- not goal(I).
+success :- goal(I).
+%-goal(I) :- not goal(I).
 
 % do not allow concurrent actions
-% need to allow concurrent actions - need to know what is possible at which step. 
+% need to allow concurrent actions - need to know what is possible at each step. 
 %:- occurs(A1, I),
 %   occurs(A2, I),
 %   A1!=A2.
-
-%:- occurs(A, I),
-%   -occurs(A, I).
-
-% forbid agents from procrastinating
-%something_happened(I) :- occurs(A,I).
-
-%:- not something_happened(I),
-%   not goal(I).
-
-%plan_length(I) :- not goal(I-1), goal(I).
-
 
 %% ------------------------
 %%      History Rules
@@ -410,8 +395,7 @@ possible(A,I) :- not -possible(A,I).
 % if it occurs, and it's possible, assume it succeeded:
 hpd(A,I) :- occurs(A,I), possible(A,I).
 -hpd(A,I) :- -possible(A,I).
-%-occurs(A,I) :- -possible(A,I).   
-% Take what actually happened into account
+% Take what actually happened into account - no need for this here
 %occurs(A, I) :- hpd(A, I). 
 
 %
@@ -421,14 +405,15 @@ obs(F, true, I) :- holds(F,I), #inertial_fluent(F).
 :- obs(F, true, I), -holds(F, I).
 :- obs(F, false, I), holds(F, I).
 
+% Initiate all inertial fluents at t=0:
 is_defined(F) :- obs(F, Y, 0).
 -holds(F, 0) :- #inertial_fluent(F),
 		not is_defined(F), not holds(F, 0).
 
-% Complete awareness axiom
 %holds(F, 0) | -holds(F, 0) :- #inertial_fluent(F).
 
-% Diagnostics rule?
+
+% Reality check:
 %-occurs(A,I) :+ occurs(A,I),
 %		 not hpd(A,I).
 
@@ -529,25 +514,6 @@ affordance_permits(go_through(A, D, L), I, 26) :- holds(on(A, S), I),
 %%         HISTORY
 %% --------------------------
 
-% do I put occurs or hpd here? 
-%-obs(in_hand(
-obs(z_loc(floor,0), true,0).
-obs(z_loc(door,7),true,0).
-obs(on(box1,floor),true,0). 
-obs(on(box2,floor),true,0). 
-obs(on(box3,floor),true,0).
-obs(on(box4,floor),true,0). 
-obs(on(box5,floor),true,0).
-obs(on(robot,floor),true,0).
-
-obs(location(robot, room),true,0).
-obs(location(box1, room),true, 0).
-obs(location(box2, room),true, 0).
-obs(location(box3, room),true, 0).
-obs(location(box4, room),true, 0).
-obs(location(box5, corridor),true, 0).
-obs(location(cup, corridor),true, 0).
-obs(on(cup, box5),true, 0).
 
 occurs(pick_up(robot,box1),0). 
 occurs(go_through(robot,door,corridor),1).
@@ -615,33 +581,22 @@ holds(on(box5,floor),0).
 holds(on(robot,floor),0).
 
 holds(location(robot, room),0).
-%holds(location(box1, corridor), 0).
 holds(location(box1, room), 0).
 holds(location(box2, room), 0).
 holds(location(box3, room), 0).
-%holds(location(box4, corridor), 0).
 holds(location(box4, room), 0).
 holds(location(box5, corridor), 0).
 holds(location(cup, corridor), 0).
 holds(on(cup, box5), 0).
 
 
-
-% Queries:
-
-% Goals:
-%goal(I) :- holds(z_loc(robot, 6), I).
-%goal(I) :- holds(z_loc(box2, 3), I).
-%goal(I) :- holds(location(robot, corridor), I).
-%goal(I) :- holds(on(box3, box1), I).
 % Execution Goal
 goal(I) :- holds(in_hand(robot, box5), I).
 
 
 display
 
-plan_length.
-goal.
+success.
 %-goal.
 %occurs.
 hpd.

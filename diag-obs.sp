@@ -21,15 +21,12 @@ sorts
 #area = {room, corridor}.
 #exit = {door}.
 
-%#box = {box1, box2, box3, box4, box5}.
-%#other = {apple}.
 #agent = {robot}.  %, human}.
 #fixed_element = {floor, door}.
 #object = {box1, box2, box3, box4, box5, cup}.
 #thing = #object + #agent.
 
 #obj_w_zloc = #thing + #fixed_element.
-%#surf = #box+{floor}.
 
 #vertsz = 0..15.
 #step = 0..n.
@@ -168,11 +165,6 @@ holds(in_hand(A, O), I+1) :- occurs(pick_up(A, O), I),
 -holds(z_loc(A, Z), I+1) :- occurs(go_to(A, S), I), 
 			    holds(z_loc(A, Z), I), 
 			    not fails(go_to(A, S), I).
-
-% 13. 
-%-hpd(A, I) :- fails(A, I). 
-%-occurs(A, I) :- fails(A, I).
-
 
 %%---------------------
 %% II State Constraints
@@ -383,48 +375,23 @@ holds(F, I+1) :- #inertial_fluent(F),
 -hpd(A,I) :- not hpd(A,I).
 
 
-%%---------------------------------------------------------
-%%                         Planning
-%%---------------------------------------------------------
-
-
-%success :- goal(I),
-%           I <= n. 
-%:- not success.
-
-% an action must occur at each step
-%occurs(A,I) :+ not goal(I).
-
 % do not allow concurrent actions
 :- occurs(A1, I),
    occurs(A2, I),
    A1!=A2.
-
-%:- occurs(A, I),
-%   -occurs(A, I).
-
-% forbid agents from procrastinating
-%something_happened(I) :- occurs(A,I).
-
-%:- not something_happened(I),
-%   not goal(I).
-
-%plan_length(I) :- not goal(I-1), goal(I).
 
 %% ------------------------
 %%      History Rules
 %% ------------------------
    
 % Take what actually happened into account
-
 occurs(A, I) :- hpd(A, I). 
-%-occurs(A,I) :- -hpd(A,I).
 
 % Make sure observations match expectations
 :- obs(F, true, I), -holds(F, I).
 :- obs(F, false, I), holds(F, I).
-%:- occurs(A,I), not hpd(A,I). 
 
+% Initialize all interial fluents at t=0
 is_defined(F) :- obs(F, Y, 0).
 -holds(F, 0) :- #inertial_fluent(F),
 		not is_defined(F), not holds(F, 0).
@@ -438,29 +405,18 @@ is_defined(F) :- obs(F, Y, 0).
 
 %% This rule generates ALL EXPLANATIONS. To find minimal explanations,
 %% replace it with the cr-rule.
-%%occurs(A,K) | -occurs(A,K) :- #abnormal_action(A),
+%%fails(A,K) | -fails(A,K) :- #action(A),
 %%                             K < n.
   
 %% Use this rule instead of the one above to generate 
 %%   MINIMAL EXPLANATIONS:                         
-%fails(A,K) :+ #action(A),
-%               K < n.
-
-%unchanged :- fails(A,K).%
-%-occurs(A,I) :- fails(A,I).
-
 fails(A,I) :+ #action(A), I<n.
 %-occurs(A,I) :+ #action(A), I<n.
-
-%occurs(A,K) :+ #hypothetical_action(A),
-%               K < n.
 
 expl(A,I) :- occurs(A,I),
              not hpd(A,I),
              fails(A, I).
-%expl(A,I) :- occurs(A,I),
-%             fails(A,I).  
-   
+ 
    
 %% ------------------------------------------------------------
 %%                   Affordance Relations
@@ -544,16 +500,6 @@ affordance_permits(go_through(A, D, L), I, 26) :- holds(on(A, S), I),
 % this is the robot - it should have both 
 % occurs (plan from robot) and hpd (history
 % from the ground truth).
-
-%hpd(pick_up(robot,box3),0).
-%hpd(go_to(robot,box1),1).
-%hpd(put_down(robot,box3,box2),2).
-%hpd(go_to(robot,box3),3).
-%hpd(go_to(robot,box4),4).
-%hpd(go_through(robot,door,corridor),5).%
-%hpd(pick_up(robot,cup),6).
-%hpd(put_down(robot,cup,floor),7).
-%hpd(pick_up(robot,box5),8).
 
 %occurs(go_through(robot,door,corridor),0).
 %occurs(pick_up(robot,cup),1).
@@ -704,30 +650,15 @@ holds(location(box4, room), 0).
 holds(location(box5, corridor), 0).
 holds(location(cup, corridor), 0).
 holds(on(cup, box5), 0).
-%holds(location
 
-
-% Queries:
-
-
-% Goals:
-%goal(I) :- holds(z_loc(robot, 6), I).
-%goal(I) :- holds(z_loc(box2, 3), I).
-%goal(I) :- holds(location(robot, corridor), I).
-%goal(I) :- holds(on(box3, box1), I).
-% Execution Goal
-%goal(I) :- holds(in_hand(robot, box5), I).
 
 
 display
 
-%plan_length.
-%goal.
 occurs.
 expl.
 fails.
 hpd.
-%affordance_permits. 
-%holds.
+
 
 
