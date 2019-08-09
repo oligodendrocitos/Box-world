@@ -55,8 +55,6 @@ sorts
 %% Actions 
 %%--------
 
-#hypothetical_action = {fails}.
-
 #action = go_to(#agent, #obj_w_zloc) +
           put_down(#agent, #object(X), #obj_w_zloc(Y)):X!=Y +
           go_through(#agent, #exit, #area) +
@@ -108,7 +106,10 @@ rules
 %%---------------
 
 %% In this section, occurs is replaced by hpd
-%% to  
+%% to prevent hypothetical actions (occurs) from
+%% causing real consequences. 
+%% These expressions should bbe changed to 
+%% occurs(A,I), possible(A,I).   
 
 % 1.
 holds(on(A, S), I+1) :- hpd(go_to(A, S), I).
@@ -413,25 +414,12 @@ is_defined(F) :- obs(F, Y, 0).
 %holds(F, 0) | -holds(F, 0) :- #inertial_fluent(F).
 
 
-% Reality check:
+% Reality check & explanation:
 %-occurs(A,I) :+ occurs(A,I),
 %		 not hpd(A,I).
 
 -hpd(A,I) :- -possible(A,I),
               occurs(A,I).
-
-%% or 
-%-occurs(A,I) :- fails(A,I).
-%fails(A,I) :+ -possible(A,I),
-%               occurs(A,I).
-
-
-%% or
-
-%-occurs(A,I) :+ -possible(A,I),
-%		 occurs(A,I).
-%occurs(A,K) :+ #hypothetical_action(A),
-%               K < n.
 
 expl(A,I) :- #action(A),
              occurs(A,I),
@@ -513,7 +501,7 @@ affordance_permits(go_through(A, D, L), I, 26) :- holds(on(A, S), I),
 %% --------------------------
 %%         HISTORY
 %% --------------------------
-
+%&%& Received plan:
 
 occurs(pick_up(robot,box1),0). 
 occurs(go_through(robot,door,corridor),1).
@@ -522,9 +510,13 @@ occurs(put_down(robot,cup,floor),3).
 occurs(pick_up(robot,box5),4).
 
 
+%&%& End of plan
+
 %%------------------
 %% Initial Condition
 %%------------------
+
+%&%& Received initial condition:
 
 has_exit(room, door).
 has_exit(corridor, door).
@@ -589,10 +581,13 @@ holds(location(box5, corridor), 0).
 holds(location(cup, corridor), 0).
 holds(on(cup, box5), 0).
 
+%&%& End of starting state
 
 % Execution Goal
 goal(I) :- holds(in_hand(robot, box5), I).
 
+
+%&%&
 
 display
 

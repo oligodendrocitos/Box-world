@@ -38,7 +38,7 @@ sorts
 #bool = {true, false}.
 
 %% VARIABLE PARAMETERS
-#substance = {paper, cardboard, wood, bio}.
+#substance = {paper, cardboard, wood, glass}.
 #power = {weak, strong}.
 #weight = {light, medium, heavy}.
 
@@ -60,11 +60,11 @@ sorts
 %% Actions 
 %%--------
 
+
 #action = go_to(#agent, #obj_w_zloc) +
           put_down(#agent, #object(X), #obj_w_zloc(Y)):X!=Y +
           go_through(#agent, #exit, #area) +
-          pick_up(#agent, #object). 
-          
+          pick_up(#agent, #object).   
           
 %%-----------
 %% Predicates
@@ -86,8 +86,6 @@ has_exit(#area, #exit).
 % affordance predicates
 affordance_permits(#action, #step, #id).
 affordance_forbids(#action, #step, #id).
-
-
 
 % planning: not in the original AL description.
 success().
@@ -185,7 +183,7 @@ holds(in_range(Ob1, Ob2, X), I) :- holds(z_loc(Ob1, Z1), I),
 				   
 % 7.
 holds(can_support(S, O), I) :- has_weight(O, light),
-                               material(S, bio).
+                               material(S, glass).
                                
 % 8. 
 holds(can_support(S, O), I) :- not has_weight(O, heavy), 
@@ -334,6 +332,7 @@ holds(can_support(S, O), I) :- material(S, wood).
 -occurs(go_through(A, D, R), I) :- not affordance_permits(go_through(A, D, R), I, 26).
                                    %not affordance_permits(go_through(A, E, L), I, 19).
                              
+%% AFFORDANCE AXIOMS END
 
 %%---------------------------------------------------------
 %%                   Inertia Axiom + CWA
@@ -378,33 +377,12 @@ occurs(A,I) :+ not goal(I).
 % forbid agents from procrastinating
 something_happened(I) :- occurs(A,I).
 
-:- not something_happened(I),
-   not goal(I).
+%:- not something_happened(I),
+%   not goal(I).
 
 plan_length(I) :- not goal(I-1), goal(I).
-%success :- goal(I),
-%           I <= n. 
-%:- not success.
 
-% an action must occur at each step
-%occurs(A,I) | -occurs(A,I) :- not goal(I).
 
-% do not allow concurrent actions
-%:- occurs(A1, I),
-%   occurs(A2, I),
-%   A1!=A2.
-
-% forbid agents from procrastinating
-%something_happened(I) :- occurs(A,I).
-
-%:- not something_happened(I),
-%   something_happened(I+1).
-
-%:- goal(I), goal(I-1),
-%   J < I,
-%   not something_happened(J).
-   
-   
 %% ------------------------------------------------------------
 %%                   Affordance Relations
 %% ------------------------------------------------------------
@@ -478,9 +456,12 @@ affordance_permits(go_through(A, D, L), I, 26) :- holds(on(A, S), I),
                                                   HS < X + HD.
                                                   %affordance_permits(go_to(A, S), I, 16)                                    
 
+
 %%------------------
 %% Initial Condition
 %%------------------
+
+%&%& Received initial condition:
 
 has_exit(room, door).
 has_exit(corridor, door).
@@ -521,7 +502,6 @@ height(box2, 1).
 height(box3, 1).
 height(box4, 3).
 height(box5, 1).
-
 height(door, 3).
 height(cup, 1).
 
@@ -533,9 +513,9 @@ holds(z_loc(door,7),0).
 holds(on(box1,floor),0). 
 holds(on(box2,floor),0). 
 holds(on(box3,floor),0).
-holds(on(box4, floor),0). 
-holds(on(box5, floor), 0).
-holds(on(robot, floor),0).
+holds(on(box4,floor),0). 
+holds(on(box5,floor),0).
+holds(on(robot,floor),0).
 
 holds(location(robot, room),0).
 %holds(location(box1, corridor), 0).
@@ -545,13 +525,10 @@ holds(location(box3, room), 0).
 %holds(location(box4, corridor), 0).
 holds(location(box4, room), 0).
 holds(location(box5, corridor), 0).
-holds(location(apple, corridor), 0).
+holds(location(cup, corridor), 0).
 holds(on(cup, box5), 0).
-%holds(location
 
-
-% Queries:
-
+%&%& End of starting state
 
 % Goals:
 %goal(I) :- holds(z_loc(robot, 6), I).
@@ -559,7 +536,7 @@ holds(on(cup, box5), 0).
 %goal(I) :- holds(location(robot, corridor), I).
 %goal(I) :- holds(on(box3, box1), I).
 % Execution Goal
-goal(I) :- holds(in_hand(robot, box5), I).
+%goal(I) :- holds(in_hand(robot, box5), I).
 
 
 display

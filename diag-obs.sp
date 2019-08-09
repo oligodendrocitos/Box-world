@@ -501,6 +501,8 @@ affordance_permits(go_through(A, D, L), I, 26) :- holds(on(A, S), I),
 % occurs (plan from robot) and hpd (history
 % from the ground truth).
 
+%&%& Received history:
+
 %occurs(go_through(robot,door,corridor),0).
 %occurs(pick_up(robot,cup),1).
 %occurs(put_down(robot,cup,floor),2).
@@ -580,10 +582,13 @@ obs(on(robot,floor),true,4).
 obs(in_hand(robot,cup),false,4).
 %pick(occurs_up(robot,box5),4).
 
+%&%& End of history
 
 %%------------------
 %% Initial Condition
 %%------------------
+
+%&%& Received initial condition:
 
 has_exit(room, door).
 has_exit(corridor, door).
@@ -651,7 +656,7 @@ holds(location(box5, corridor), 0).
 holds(location(cup, corridor), 0).
 holds(on(cup, box5), 0).
 
-
+%&%& End of starting state
 
 display
 
