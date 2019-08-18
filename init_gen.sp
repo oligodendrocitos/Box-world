@@ -21,7 +21,7 @@ sorts
 
 #agent = {robot}.
 #fixed_element = {floor} + #exit.
-#object = {box1, box2, box3, box4, box5, box6, chair, cup}.
+#object = {box1, box2, box3, box4, box5, chair, cup}.
 #thing = #object + #agent.
 
 #obj_w_zloc = #thing + #fixed_element.
@@ -33,9 +33,11 @@ sorts
 #bool = {true, false}.
 
 %% VARIABLE PARAMETERS
-#substance = {paper, cardboard, wood, glass}.
-#power = {weak, strong}.
+#substance = {paper, plastic, wood, glass}.
 #weight = {light, medium, heavy}.
+
+#skill_level = {poor, average, good}.
+#limb = {arm, leg}.
 
 %%--------
 %% Fluents
@@ -120,7 +122,7 @@ holds(can_support(S, O), I) :- has_weight(O, light),
                                
 % 2. 
 holds(can_support(S, O), I) :- not has_weight(O, heavy), 
-                               material(S, cardboard).
+                               material(S, plastic).
 
 % 3. 
 holds(can_support(S, O), I) :- not has_weight(O, heavy),
@@ -147,11 +149,11 @@ holds(can_support(X, Y),I) :- has_surf(Y, true).
 % 9. Can't have more than two objects made out of glass or paper or card:
 :- material(A,paper), material(B,paper), A!=B.
 :- material(A,glass), material(B,glass), A!=B. 
-:- material(A,cardboard), material(B,cardboard), material(C, cardboard), A!=B, B!=C, C!=A. 
+:- material(A,plastic), material(B,plastic), material(C, plastic), A!=B, B!=C, C!=A. 
 
 % 10. Objects made out of paper or card can't be heavy
 :- has_weight(O,heavy), material(O,paper). 
-:- has_weight(O,heavy), material(O,cardboard).
+:- has_weight(O,heavy), material(O,plastic).
 
 % 11. Generate a minimal number of objects in the same room as the agent so as to prevent running dead-end simulations
 %:- holds(location(robot, Ar1),0), -holds(location(Ob1,Ar1),0), -holds(location(Ob2,Ar1),0), 
@@ -195,7 +197,7 @@ holds(can_support(X, Y),I) :- has_surf(Y, true).
  
 %% VARIABLE PARAMETERS
 % Objects are made of a particular substance
-1{material(X, paper); material(X, cardboard); material(X, wood); material(X, glass)}1 :- #object(X).
+1{material(X, paper); material(X, plastic); material(X, wood); material(X, glass)}1 :- #object(X).
 
 % Things have weight
 1{has_weight(X, light); has_weight(X, medium); has_weight(X,heavy)}1 :- #thing(X).
