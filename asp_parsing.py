@@ -1,17 +1,18 @@
-# asp_parsing.py
-#
-# /usr/bin/python2.7
-#
+##  asp_parsing.py
+##
+##  /usr/bin/python2.7
+##
 
 import os
-import subprocess
+# import subprocess
 from subprocess import Popen, PIPE
 from subprocess import *
 import re
 import random
 import time
 import numpy as np
-import cPickle as Pickle
+import csv
+#import cPickle as Pickle
 
 # go to SPARC solver directory
 os.chdir('/home/maija/maija.fil@gmail.com/THESIS/ASP')
@@ -35,7 +36,7 @@ def jarwrapper(*args):
     ret += stdout.split('\n')
     if stderr != '':
         ret += stderr.split('\n')
-        runtime_error = True
+        # runtime_error = True # uncomment & return to use error msg.
     ret.remove('')
     return ret
 
@@ -51,12 +52,12 @@ def rm_header(result):
 # TODO
 # create a method to detect and deal with runtime errors
 
-def pick_goal(ans_set):
+def pick_goal(g):
     """Set must be a list of possible goals in
     the form of a literal"""
-    g = random.choice(ans_set)
+    #g = random.choice(ans_set)
     g = list(g)  # convert to list
-    g[-1] = 'I'  # insert chosen horizon value
+    g[-2] = 'I'  # insert chosen horizon value
     goal_str = ''.join(g)  # create line to be inserted
     return goal_str
 
@@ -106,12 +107,14 @@ def run_goal_gen(asp_filename):
     # OUTPUT
     result = jarwrapper(*args)
     fluent_set = rm_header(result)
-    # Regex the output
     fluent_set = fluent_set[0]
     # remove braces
     fluent_set = fluent_set[1:-1]
+    # add extra paren so it doesn't get removed 
+    fluent_set = fluent_set+')'
     # split into a list
     fluent_ls = re.split('\s', fluent_set)
+    # remove comma
     fluent_ls = [i[:-1] for i in fluent_ls]
     return fluent_ls
 
@@ -127,6 +130,7 @@ class ExpCondition:
     individual entries (trials). """
     def __init__(self):
         self.goal = []
+        self.success = []
         self.exe_t = []
         self.arity = []
         self.plans = []
@@ -157,7 +161,7 @@ def find_plan_length(plan_list):
     when the goal holds."""
     if len(plan_list) == 0:
         # no plans were returned
-        plan_length = []
+        plan_length = 0
     else:
         # plan length is always the first item in the output
         plan_len_pred = plan_list[0][0]
@@ -165,6 +169,8 @@ def find_plan_length(plan_list):
         re_out = re.search(r"\d+", plan_len_pred)
         # access the match and convert to an integer
         plan_length = int(re_out.group(0))
+        if plan_length == 0:
+            plan_length = 999
     return plan_length
 
 
@@ -274,8 +280,13 @@ def determine_success(asp_output):
     else:
         sb = 0
     return sb
+    
+    
+def plan_check(formatted_output):
+    """Check if plan is pointless, i.e.
+    true at t=0. """
 
-
+#%%
 # --------------------------------------------------------------------------------- #
 #                       Data recording and program parameters
 # --------------------------------------------------------------------------------- #
@@ -300,6 +311,8 @@ goal_ls = run_goal_gen(asp_goal_set)
 init_out = jarwrapper(asp_init, '-A ', '-n', '1')
 init_out = rm_header(init_out)
 init_list = out_to_list(init_out)
+# remove can_support :
+init_list = [i for i in init_list[0] if not 'can_support' in i]
 
 # Choose file names for programs with altered goals,
 # the source programs are left unchanged.
@@ -307,20 +320,109 @@ target_cdk = 'rand-goal-cdk.sp'
 target_pdk = 'rand-goal-pdk.sp'
 
 
+#%% 
 # ----------------------------------------------------- #
 #                  Experiment 1
 # ----------------------------------------------------- #
 
 iters = len(goal_ls)
 
-for i in range(1):
+# save goal list:
+with open('goals.tsv', "wb") as tsv_file:
+        writer = csv.writer(tsv_file, delimiter='\t')
+        writer.writerow(goal_ls)
+            
+c_all = open('x_1.tsv', 'wb')
+
+#head = ['trial', 'goal', 'init_cond', 'missing_ax', 'miss_ax_n', 'pdk_exe_t', 'cdk_exe_t',
+#        'pdk.success', 'cdk.success', 'pdk.arity', 'cdk.arity', 'pdk.plans', 'cdk.plans', 
+#        'pdk.n.plans', 'cdk.n.plans']
+        
+head = ['trial', 'goal','pdk_exe_t', 'cdk_exe_t',
+        'pdk.success', 'cdk.success', 'pdk.arity', 'cdk.arity', 'pdk.plans', 'cdk.plans', 
+        'pdk.n.plans', 'cdk.n.plans']
+
+
+writer = csv.writer(c_all, delimiter='\t')
+writer.writerow(head)
+
+#%% Create Partial domain knowledge script and set deletion of information:
+
+# No. of axioms to delete:
+n_del = 1
+
+# read in complete file:
+f = open(asp_complete, 'r')
+script = f.readlines()
+
+# get aff-rels. / exec. conds. (through flags)
+ec_ln = find_line_id('%&%& E.c.:', script)
+ec_end = find_line_id('%% AFFORDANCE AXIOMS END', script)
+ar_ln = find_line_id('%&%& A.R.:', script)
+ar_end = find_line_id('%&%& A.R. end', script)
+
+exec_conds = script[ec_ln[0]:ec_end[0]]
+aff_rels = script[ar_ln[0]:ar_end[0]]
+# add newline char!
+#exec_conds = [i+'\n' for i in exec_conds]
+#aff_rels = [i+'\n' for i in aff_rels]
+
+# connect into 1:
+exec_conds_s = "".join(exec_conds)
+aff_rels_s = "".join(aff_rels)
+# Regex by /d.
+ec_ls = re.split('\d\.', exec_conds_s)
+aff_rel_ls = re.split('%\s\d\.', aff_rels_s)
+
+# which of these are suitable to delete for this experiment? 
+# (complex affordances are what's investigated, regular one's can stay in the script)
+ec_complex = [4, 5, 6]
+ar_complex = range(3,len(aff_rel_ls)) # aff. rels. involved in the above exec. conds. 
+
+# choose which to keep: sample of total expressions - number to delete
+to_del_ec = random.sample(ec_complex, n_del)
+to_del_ar = [] # random.sample(ar_complex, n_del)
+
+# write the rest to file (do they still have /n?)
+ec_w = [l for i,l in enumerate(ec_ls) if not i in to_del_ec]
+ar_w = [l for i,l in enumerate(aff_rel_ls) if not i in to_del_ar]
+
+ec_w = "".join(ec_w)
+ar_w = "".join(ar_w)
+
+# pdk = cdk + ec+w + lines inbetween + ar+w + remaining lines
+pdk_script = script[0:ec_ln[0]]
+pdk_script.extend(ec_w)
+pdk_script.extend(script[ec_end[0]:ar_ln[0]])
+pdk_script.extend(ar_w)
+pdk_script.extend(script[ar_end[0]:])
+pdk_script = "".join(pdk_script)
+# this is the pdk domain. 
+
+f = open(asp_partial, 'w')
+f.write(pdk_script)
+f.close()
+
+
+
+#%%
+for i in range(10):
     # Choose a goal
-    #goal = pick_goal(goal_ls)
-    goal = pick_goal(gls)
+    goal = pick_goal(goal_ls[i])
+    #goal = pick_goal(gls)
 
     # Write the goal to the target program files.
     set_goal(asp_complete, target_cdk, goal)
     set_goal(asp_partial, target_pdk, goal)
+    
+    # Set starting conditions:
+    init_out = jarwrapper(asp_init, '-A ', '-n', '1')
+    init_out = rm_header(init_out)
+    init_list = out_to_list(init_out)
+    # remove can_support :
+    init_list = [i for i in init_list[0] if not 'can_support' in i]
+    add_init_state(target_cdk,target_cdk,init_list)
+    add_init_state(target_pdk,target_pdk,init_list)
 
     # Execute program, save output
     t = time.clock()
@@ -352,8 +454,24 @@ for i in range(1):
     partial_dk.exe_t.append(t2_end - t2)
     partial_dk.plans.append(pdk_plan_ls)
     partial_dk.no_plans.append(len(pdk_plan_ls))
+    
+    pdkSucc = determine_success(cdk_out)
+    cdkSucc = determine_success(pdk_out)
+    complete_dk.success.append(cdkSucc)
+    partial_dk.success.append(pdkSucc)
+    
+    if cdk_p_len!=999:
+        writer.writerow([i, goal, t2_end, t_end, pdkSucc, cdkSucc,
+                         pdk_p_len, cdk_p_len, pdk_plan_ls, cdk_plan_ls,
+                         len(pdk_plan_ls), len(cdk_plan_ls)])
+    
+    
 
+#%% Run when all desired conditions completed: 
 
+c_all.close()
+
+#%%
 # save data
 with open('results/partial_dk_results_1.pkl', 'wb') as output:
     Pickle.dump(partial_dk, output, Pickle.HIGHEST_PROTOCOL)
@@ -361,7 +479,7 @@ with open('results/partial_dk_results_1.pkl', 'wb') as output:
 with open('results/complete_dk_results_1.pkl', 'wb') as output:
     Pickle.dump(complete_dk, output, Pickle.HIGHEST_PROTOCOL)
 
-
+#%%
 # ----------------------------------------------------- #
 #                  Experiment 2
 # ----------------------------------------------------- #
@@ -384,10 +502,12 @@ required_fluents = ["location", "on", "in_hand"]
 
 # Which axioms to delete?
 
-for i in range(1):
+#%%
+
+for i in range(10):
     # Choose a goal
-    #goal = pick_goal(goal_ls)
-    goal = savedgoal
+    goal = pick_goal(goal_ls)
+    #goal = savedgoal
     # Write the goal to the target  files.
     set_goal(asp_partial, target_pdk, goal)
     # Set starting state:
@@ -411,59 +531,63 @@ for i in range(1):
     #experiment_2.missing_ax.append()
     # 1. was a plan found?
     success = 1 if len(pdk_out) > 0 else 0
-
-    for j in range(len(pdk_plan_ls)):
-        plan_failure = []
-        explanations = []
-        # get new plan
-        plan = pdk_plan_ls[j]
-        # add plan to program:
-        add_plan(plan, asp_sim, sim)
-        # add starting state
-        #world_sim = append_program(world_sim, init_cond)
-
-        # execute to get feedback as list of fluents
-        history_f = run_goal_gen(sim)
-        # get relevant history
-        test = hist_search(history_f, plan)
-
-        # add history and obs to diagnostics program
-        f = open(asp_diag, "r")
-        contents = f.readlines()
-        f.close()
-        line_num = find_line_id("%&%& Received history:", contents)
-        end_ln = find_line_id("%&%& End of history", contents)
-        histln=[]
-        histln = [i[:-1] for i in ordered_hist]
-        histln = [i + '. \n' for i in histln]
-        # remove old history & add new history and plan
-        contents_w = []
-        contents_w = contents[0:line_num[0] + 1]
-        contents_w.extend(newln[0:])
-        contents_w.extend(histln)
-        contents_w.extend(contents[end_ln[0]:-1])
-        # write to file
-        f = open(diag, "w")
-        contents_w = "".join(contents_w)
-        f.write(contents_w)
-        f.close()
-
-        # execute to get feedback
-        diag_out = jarwrapper(diag, '-A')
-
-        # append result arrays:
-        #plan_failure.append()
-        explanations.append(diag_out)
-
-        # Record Results:
-        diag_frame.goal.append(goal)
-        diag_frame.plan.append(plan)
-        diag_frame.success.append(success)
-        # 2. Was it correct?
-        correct = 1 if 'success' in history_f else 0
-        diag_frame.correct.append(correct)
-        # 3. What's the explanation for failure?
-        diag_frame.expl.append(diag_out)
+    
+    # if yes, proceed to loop through plans.
+    if success and p_len!=999:
+        for j in range(len(pdk_plan_ls)):
+            plan_failure = []
+            explanations = []
+            # get new plan
+            plan = pdk_plan_ls[j]
+            # add plan to program:
+            add_plan(plan, asp_sim, sim)
+            # add the starting state from outer loop
+            #world_sim = append_program(world_sim, state)
+    
+            # execute to get feedback as list of fluents
+            history_f = run_goal_gen(sim)
+            # get relevant history
+            test = hist_search(history_f, plan)
+    
+            # add history and obs to diagnostics program
+            f = open(asp_diag, "r")
+            contents = f.readlines()
+            f.close()
+            line_num = find_line_id("%&%& Received history:", contents)
+            end_ln = find_line_id("%&%& End of history", contents)
+            histln=[]
+            #histln = [i[:-1] for i in test]
+            histln = [i + '. \n' for i in test]
+            # remove old history & add new history and plan
+            contents_w = []
+            contents_w = contents[0:line_num[0] + 1]
+            #contents_w.extend(newln[0:])
+            contents_w.extend(histln)
+            contents_w.extend(contents[end_ln[0]:-1])
+            # write to file
+            f = open(diag, "w")
+            contents_w = "".join(contents_w)
+            f.write(contents_w)
+            f.close()
+    
+            # execute to get feedback
+            diag_out = jarwrapper(diag, '-A')
+            diag_out = rm_header(diag_out)
+            diag_out = out_to_list(diag_out)
+    
+            # append result arrays:
+            #plan_failure.append()
+            explanations.append(diag_out)
+    
+            # Record Results:
+            diag_frame.goal.append(goal)
+            diag_frame.plan.append(plan)
+            diag_frame.success.append(success)
+            # 2. Was it correct?
+            correct = 1 if 'success' in history_f else 0
+            diag_frame.correct.append(correct)
+            # 3. What's the explanation for failure?
+            diag_frame.expl.append(diag_out)
 
 
 
@@ -513,3 +637,6 @@ for i in range(1):
 # hpds = [i for i in history_f if 'hpd' in i]
 # final_hist.extend(hpds)
 
+#%%
+from IPython import get_ipython
+get_ipython().magic('reset -sf')
