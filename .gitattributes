@@ -1,2 +1,2 @@
 # Override linguist
-*.sp linguist-language=SPARC
+*.sp linguist-language=Prolog
