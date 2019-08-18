@@ -69,6 +69,9 @@ has_weight(#thing, #weight).
 has_surf(#obj_w_zloc, #bool).
 material(#obj_w_zloc, #substance).
 
+joint_mobility(#agent, #limb, #skill_level).
+limb_strength(#agent, #limb, #skill_level).
+
 has_exit(#area, #exit). 
 
 % planning: not in the original AL description.
@@ -136,15 +139,15 @@ holds(can_support(S, O), I) :- material(S, wood).
                                 not holds(can_support(S2, O), I).
 
 % 6. impossible to be on something that doesn't have a surface
-%-holds(on(X, Y),I) :- not has_surf(Y, true). 
-holds(can_support(X, Y),I) :- has_surf(Y, true). 
+-holds(on(X, Y),I) :- has_surf(Y, false). 
+-holds(can_support(X, Y),I) :- not has_surf(Y, true). 
 -holds(on(X,Y),I) :- not holds(can_support(Y,X),I). 
 
 % 7. 
 -holds(z_loc(X, Z),I) :- holds(z_loc(X, Z2), I), Z!=Z2.
 
 % 8. 
--holds(in_hand(A, O), I) :- holds(in_hand(A, O2), I).
+-holds(in_hand(A, O), I) :- holds(in_hand(A, O2), I), O!=O2.
 
 % 9. Can't have more than two objects made out of glass or paper or card:
 :- material(A,paper), material(B,paper), A!=B.
@@ -180,10 +183,16 @@ holds(can_support(X, Y),I) :- has_surf(Y, true).
 %%---------------
 
 
-1{holds(on(X, floor), 0); holds(on(X, box1),0); holds(on(X,box2),0); holds(on(X,box3),0); holds(on(X,box4),0); holds(on(X,box5),0)}1 :- #thing(X).  
+1{holds(on(X, floor), 0); holds(on(X,box3),0); holds(on(X,box4),0)}1 :- #thing(X), X=chair.  
+1{holds(on(X, floor), 0); holds(on(X,box2),0); holds(on(X,box3),0)}1 :- #thing(X), X=box1.  
+1{holds(on(X, floor), 0); holds(on(X,box3),0)}1 :- #thing(X), X=box2.  
+1{holds(on(X, floor), 0); holds(on(X,box2),0); holds(on(X,box3),0)}1 :- #thing(X), X=robot.  
+1{holds(on(X, floor), 0); holds(on(X,box5),0)}1 :- #thing(X), X=cup.  
 
 % If it exists, it must have a location
-1{holds(location(X, Ar), I); holds(location(X, Ar2), I); holds(location(X,Ar3),I)}1 :- #thing(X), #area(Ar), #area(Ar2), #area(Ar3), Ar!=Ar2, Ar!=Ar3, Ar2!=Ar3.
+%1{holds(location(X, Ar), I); holds(location(X, Ar2)}1 :- #thing(X), #area(Ar), #area(Ar2), Ar!=Ar2.
+1{holds(location(cup, room), I); holds(location(cup, corridor),I)}1.
+1{holds(location(box5, room), I); holds(location(box5, corridor),I)}1.
 
 % if it exists, it must have height. The range is different for agents, objects and static objects:
 % Object height is between 1-4
@@ -194,14 +203,24 @@ holds(can_support(X, Y),I) :- has_surf(Y, true).
 %1{height(X,1); height(X,2); height(X,3); height(X,4)}1 :- #object(X), X!=cup.
 %1{height(X,2); height(X,3); height(X,4); height(X,5); height(X,6)}1 :- #exit(X). %, X!=window.
 %1{height(X,1); height(X,2); height(X,3); height(X,4)}1 :- exit(X), X=window.
+1{height(X,1); height(X,2)}1 :- #object(X), X=box5.
+1{height(X,1); height(X,2)}1 :- #object(X), X=box3.
+%1{height(X,2); height(X,3)}1 :- #exit(X).
  
 %% VARIABLE PARAMETERS
 % Objects are made of a particular substance
-1{material(X, paper); material(X, plastic); material(X, wood); material(X, glass)}1 :- #object(X).
+%1{material(X, paper); material(X, plastic); material(X, wood); material(X, glass)}1 :- #object(X).
+1{material(X, paper); material(X, plastic); material(X, glass)}1 :- #object(X), X=box1.
+1{material(X, paper); material(X, plastic); material(X, glass)}1 :- #object(X), X=cup.
+1{material(X, wood); material(X, plastic)}1 :- #object(X), X=box2.
+1{material(X, plastic); material(X, wood)}1 :- #object(X), X=chair.
 
 % Things have weight
-1{has_weight(X, light); has_weight(X, medium); has_weight(X,heavy)}1 :- #thing(X).
+%1{has_weight(X, light); has_weight(X, medium); has_weight(X,heavy)}1 :- #thing(X).
 %1{has_weight(X, W)}1 :- #thing(X), #weight(W).
+1{has_weight(X, medium); has_weight(X,heavy)}1 :- #thing(X), X=chair.
+1{has_weight(X, medium); has_weight(X,heavy)}1 :- #thing(X), X=robot.
+1{has_weight(X, medium); has_weight(X,heavy)}1 :- #thing(X), X=box2.
 
 % Agents have a strength level
 %1{has_power(A, weak); has_power(A,strong)}1 :- #agent(A).
@@ -216,38 +235,59 @@ holds(can_support(X, Y),I) :- has_surf(Y, true).
 %holds(location(robot, room),0).
 has_exit(room, door).
 has_exit(corridor, door).
-has_exit(corridor, door).
-has_exit(corridor, window).
-has_exit(foyer, window).
-
-material(floor, wood).
-material(chair, wood).
-
-holds(z_loc(floor,0),0).
-holds(z_loc(door,7),0).
-holds(z_loc(window,3),0).
-height(floor, 0).
-height(cup, 1).
-height(chair,1).
-height(door, 3).
-height(window,2).
-
-has_power(robot, strong). 
-
-height(robot, 2).
 
 has_surf(box1, true).
 has_surf(box2, true).
 has_surf(box3, true).
 has_surf(box4, true).
 has_surf(box5, true).
-has_surf(box6, true).
 has_surf(floor, true).
 has_surf(cup, false).
 has_surf(chair, true).
 has_surf(door, false).
-has_surf(window,false).
 has_surf(robot,false).
+
+material(floor, wood).
+material(chair, wood).
+material(box4, wood).
+material(box3, wood).
+
+holds(z_loc(floor,0),0).
+holds(z_loc(door,7),0).
+
+holds(on(box3, floor), 0).
+holds(on(box4, floor), 0).
+holds(on(box5, floor), 0).
+
+holds(location(robot, room),0).
+holds(location(box1, room),0).
+holds(location(box2, room),0).
+holds(location(box3, room),0).
+holds(location(box4, room),0).
+holds(location(chair, room),0).
+
+height(floor, 0).
+height(cup, 1).
+height(chair,1).
+height(door, 3).
+height(box1, 1). 
+height(box2, 1). 
+height(box4, 3).
+height(robot, 2).
+
+
+joint_mobility(robot, leg, good).
+limb_strength(robot, arm, good).
+joint_mobility(robot, leg, good).
+limb_strength(robot, arm, good).
+
+has_weight(box1, light).
+has_weight(box3, medium).
+has_weight(box4, medium).
+has_weight(box5, medium).
+has_weight(cup, light).
+
+
 %%
 
 %% VARIABLE CONDITIONS
@@ -264,12 +304,7 @@ has_surf(robot,false).
 %has_weight(robot, medium). 
 
 
-height(box1, 1). 
-height(box2, 1). 
-height(box3, 1).
-height(box4, 3).
-height(box5, 2).
-height(box6, 2).
+
 
 
 

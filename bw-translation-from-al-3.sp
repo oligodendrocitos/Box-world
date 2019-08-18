@@ -37,7 +37,7 @@ sorts
 #bool = {true, false}.
 
 %% VARIABLE PARAMETERS
-#substance = {paper, cardboard, wood, glass}.
+#substance = {paper, plastic, wood, glass}.
 #power = {weak, strong}.
 #weight = {light, medium, heavy}.
 
@@ -204,7 +204,7 @@ holds(can_support(S, O), I) :- has_weight(O, light),
                                
 % 8. 
 holds(can_support(S, O), I) :- not has_weight(O, heavy), 
-                               material(S, cardboard).
+                               material(S, plastic).
 
 % 9. 
 holds(can_support(S, O), I) :- has_weight(O, light),
@@ -292,7 +292,13 @@ holds(can_support(S, O), I) :- material(S, wood).
 -occurs(go_to(A,S),I) :- #agent(S).
 
 % 17. can't pick up objects larger than oneself
-%-occurs(pick_up(A,O),I) :- height(A,H), height(O,HO), HO>=H.				                         
+%-occurs(pick_up(A,O),I) :- height(A,H), height(O,HO), HO>=H.	
+
+% 18. sanity check rule for affordance deletion: cannot travel through openings more than 2 units away 
+% out of span
+-occurs(go_through(A,E,L),I) :- holds(in_range(E,A,X),I), height(A,H), X>=H+2.
+-occurs(go_through(A,E,L),I) :- holds(in_range(E,A,X),I), height(E,H), X>=H+1.	
+                        
                            
 %% ------------------------------
 %% Exec. conditions + affordances
@@ -357,9 +363,7 @@ holds(can_support(S, O), I) :- material(S, wood).
 			      affordance_permits(put_down(A,O,S),I,21),
 			      not affordance_permits(pick_up(A,O),I,15),
 			      not affordance_permits(pick_up(A,O),I,16). 	     
-			       			  			     
-
-
+			       			  			    
 
 % 12.
 % put down impossible UNLESS target surface can support the obj.
@@ -423,15 +427,6 @@ affordance_permits(pick_up(A, O), I, 11) :- height(A, H), height(O, HO),
 % Aff. permits moving objects, if the target surface supports them.
 affordance_permits(put_down(A, O, S), I, 12) :- holds(can_support(S, O), I).
 
-% Aff. permits picking up objects within +1 unit if arm mobility
-% Aff. permits picking up -1 unit if leg mobility 
-% Aff. permits picking up +1 unit if arm mobility
-
-
-% Impossible picking up +1-1 unit if arm/leg mobility IF object is heavy, UNLESS limb strength is good & agent is strong. 
-% med-strong agents can pick up light-medium objects this way. 
-% high-strength agents can pick up med-heavy objects this way. 
-
 % 4.
 % agents with flexible, agerage strength in their arms are able to pick up objects out of their range if they aren't heavy.
 affordance_permits(pick_up(A,O),I,13) :- joint_mobility(A,arm,good), limb_strength(A,arm,average), not has_weight(O,heavy).
@@ -477,7 +472,7 @@ affordance_permits(put_down(A,O,S),I,22) :- holds(z_loc(A,Z),I), holds(z_loc(S,Z
 % 14.
 % objects can be put on surfaces lower than the agent can reach - if the object is not heavy and the surface isn't fragile,
 % i.e. it can be 'dropped' without damaging the surface.
-affordance_permits(put_down(A,O,S),I,23) :- holds(z_loc(A,Z),I), holds(z_loc(S,ZS),I),ZS>=Z, has_weight(O, medium), not has_weight(S,light), not material(S,cardboard).
+affordance_permits(put_down(A,O,S),I,23) :- holds(z_loc(A,Z),I), holds(z_loc(S,ZS),I),ZS>=Z, has_weight(O, medium), not has_weight(S,light), not material(S,plastic).
 
 
 % 15.
