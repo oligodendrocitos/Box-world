@@ -64,7 +64,6 @@ holds(#fluent, #step).
 %occurs(#action, #step).
 
 height(#obj_w_zloc, #vertsz).
-has_power(#agent, #power).
 has_weight(#thing, #weight).
 has_surf(#obj_w_zloc, #bool).
 material(#obj_w_zloc, #substance).
@@ -121,18 +120,18 @@ holds(z_loc(O, Z+H), I) :- holds(on(O, S), I),
 % Support Rules:
 % 1.
 holds(can_support(S, O), I) :- has_weight(O, light),
-                               material(S, glass).
+                               material(S, glass), has_surf(S, true).
                                
 % 2. 
 holds(can_support(S, O), I) :- not has_weight(O, heavy), 
-                               material(S, plastic).
+                               material(S, plastic), has_surf(S, true).
 
 % 3. 
 holds(can_support(S, O), I) :- not has_weight(O, heavy),
-                               material(S, paper).
+                               material(S, paper), has_surf(S, true).
 
 % 4. 
-holds(can_support(S, O), I) :- material(S, wood).
+holds(can_support(S, O), I) :- material(S, wood), has_surf(S, true).
 
 % 5.				  
 -holds(can_support(S, O), I) :- holds(on(S, S2), I), 
@@ -140,7 +139,8 @@ holds(can_support(S, O), I) :- material(S, wood).
 
 % 6. impossible to be on something that doesn't have a surface
 -holds(on(X, Y),I) :- has_surf(Y, false). 
--holds(can_support(X, Y),I) :- not has_surf(Y, true). 
+-holds(can_support(Y, X),I) :- has_surf(Y, false). 
+%-holds(can_support(X, Y),I) :- not has_surf(Y, true). 
 -holds(on(X,Y),I) :- not holds(can_support(Y,X),I). 
 
 % 7. 
@@ -150,9 +150,9 @@ holds(can_support(S, O), I) :- material(S, wood).
 -holds(in_hand(A, O), I) :- holds(in_hand(A, O2), I), O!=O2.
 
 % 9. Can't have more than two objects made out of glass or paper or card:
-:- material(A,paper), material(B,paper), A!=B.
-:- material(A,glass), material(B,glass), A!=B. 
-:- material(A,plastic), material(B,plastic), material(C, plastic), A!=B, B!=C, C!=A. 
+%:- material(A,paper), material(B,paper), A!=B.
+%:- material(A,glass), material(B,glass), A!=B. 
+%:- material(A,plastic), material(B,plastic), material(C, plastic), A!=B, B!=C, C!=A. 
 
 % 10. Objects made out of paper or card can't be heavy
 :- has_weight(O,heavy), material(O,paper). 
@@ -169,11 +169,10 @@ holds(can_support(S, O), I) :- material(S, wood).
 %%---------------------------------------------------------
 
 % CWA for predicates
--height(O, H) :- height(O, H2), H!=H2.
--has_power(A, P) :- has_power(A, P2), P!=P2. 
--has_weight(A, W) :- has_weight(A, W2), W!=W2.  
--has_surf(A, B) :- has_surf(A, C), C!=B.
--material(A, B) :- material(A, C), C!=B.
+%-height(O, H) :- height(O, H2), H!=H2.
+%-has_weight(A, W) :- has_weight(A, W2), W!=W2.  
+%-has_surf(A, B) :- has_surf(A, C), C!=B.
+%-material(A, B) :- material(A, C), C!=B.
 
 % CWA for Defined fluents
 -holds(F,I) :- not holds(F,I), #defined_fluent(F).
@@ -248,9 +247,9 @@ has_surf(door, false).
 has_surf(robot,false).
 
 material(floor, wood).
-material(chair, wood).
 material(box4, wood).
 material(box3, wood).
+material(box5, wood).
 
 holds(z_loc(floor,0),0).
 holds(z_loc(door,7),0).
@@ -310,11 +309,13 @@ has_weight(cup, light).
 
 display
 
-%has_exit.
+has_exit.
 material.
 has_weight.
-has_power.
 height.
+limb_strength.
+has_surf.
+joint_mobility.
 holds.
 %
 

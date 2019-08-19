@@ -159,11 +159,12 @@ holds(in_hand(A, O), I+1) :- hpd(pick_up(A, O), I).
 			 holds(on(A, S), I). 
 
 % 12.
--holds(z_loc(A, Z), I+1) :- hpd(go_to(A, S), I), 
-			    holds(z_loc(S, Z), I),
-			    holds(on(A,S2),I),
-			    holds(z_loc(S2,Z2),I),
-			    Z2!=Z.
+-holds(z_loc(A, ZA), I+1) :- hpd(go_to(A, S), I), 
+			     holds(z_loc(S, Z), I),
+			     holds(z_loc(S2,Z2),I),
+			     holds(z_loc(A,ZA),I),
+			     holds(on(A,S2),I),
+			     Z2!=Z.
 
 % 13. Go thorugh removes the agent from the surface they were standing on.
 -holds(on(A, S), I+1) :- hpd(go_through(A, D, L), I),
@@ -357,7 +358,7 @@ holds(can_support(S, O), I) :- material(S, wood).
                               not affordance_permits(put_down(A,O,S),I,23).	
 
 % 11. ...and the agent has appropriate arm mobility / object isn't too heavy for the agent...
--possible(put_down(A,O,S),I) :- holds(z_loc(A,Z),I), holds(z_loc(S,ZS),I),ZS>=Z,			       
+-possible(put_down(A,O,S),I) :- holds(z_loc(A,Z),I), holds(z_loc(S,ZS),I),Z-H>ZS,			       
 			      affordance_permits(put_down(A,O,S),I,21),
 			      not affordance_permits(pick_up(A,O),I,15),
 			      not affordance_permits(pick_up(A,O),I,16). 	     
@@ -507,15 +508,6 @@ affordance_permits(pick_up(A, O), I, 11) :- height(A, H), height(O, HO),
 % Aff. permits moving objects, if the target surface supports them.
 affordance_permits(put_down(A, O, S), I, 12) :- holds(can_support(S, O), I).
 
-% Aff. permits picking up objects within +1 unit if arm mobility
-% Aff. permits picking up -1 unit if leg mobility 
-% Aff. permits picking up +1 unit if arm mobility
-
-
-% Impossible picking up +1-1 unit if arm/leg mobility IF object is heavy, UNLESS limb strength is good & agent is strong. 
-% med-strong agents can pick up light-medium objects this way. 
-% high-strength agents can pick up med-heavy objects this way. 
-
 % 4.
 % agents with flexible, agerage strength in their arms are able to pick up objects out of their range if they aren't heavy.
 affordance_permits(pick_up(A,O),I,13) :- joint_mobility(A,arm,good), limb_strength(A,arm,average), not has_weight(O,heavy).
@@ -526,7 +518,7 @@ affordance_permits(pick_up(A,O),I,14) :- limb_strength(A,arm,good), joint_mobili
 
 % 6.
 % agents with flexible, average strength arms and legs are able to pick up objects lower than temselves, if they aren't heavy.
-affordance_permits(pick_up(A,O),I,15) :- joint_mobility(A,leg,good),limb_strength(A,leg,average), not has_weight(O,heavy),
+affordance_permits(pick_up(A,O),I,15) :- joint_mobility(A,leg,good),limb_strength(A,leg,average),
 					 joint_mobility(A,arm,good),limb_strength(A,arm,average), not has_weight(O,heavy).
 % 7.
 % agents with flexible, strong arms and legs are able to pick up objects lower than themselves.
@@ -552,16 +544,16 @@ affordance_permits(put_down(A,O,S),I,20) :- holds(z_loc(A,Z),I), holds(z_loc(S,Z
 
 % 12.
 % objects can be put on surfaces out of range - if they're no more than two units lower than the agent.
-affordance_permits(put_down(A,O,S),I,21) :- holds(z_loc(A,Z),I), holds(z_loc(S,ZS),I), height(A,H),Z-H>ZS, ZS-Z<=2.
+affordance_permits(put_down(A,O,S),I,21) :- holds(z_loc(A,Z),I), holds(z_loc(S,ZS),I), height(A,H),Z-H>ZS, Z-ZS<=2.
 
 % 13.
 % objects can be put on surfaces lower than the agent can reach - if the object is light, i.e. it can be 'dropped'.
-affordance_permits(put_down(A,O,S),I,22) :- holds(z_loc(A,Z),I), holds(z_loc(S,ZS),I),ZS>=Z, has_weight(O, light).
+affordance_permits(put_down(A,O,S),I,22) :- holds(z_loc(A,Z),I), holds(z_loc(S,ZS),I), height(A,HA), ZS<Z-HA, has_weight(O, light).
 
 % 14.
 % objects can be put on surfaces lower than the agent can reach - if the object is not heavy and the surface isn't fragile,
 % i.e. it can be 'dropped' without damaging the surface.
-affordance_permits(put_down(A,O,S),I,23) :- holds(z_loc(A,Z),I), holds(z_loc(S,ZS),I),ZS>=Z, has_weight(O, medium), not has_weight(S,light), not material(S,plastic).
+affordance_permits(put_down(A,O,S),I,23) :- holds(z_loc(A,Z),I), holds(z_loc(S,ZS),I), height(A,HA), ZS<Z-HA, has_weight(O, medium), not material(S,glass), not material(O,glass).
 
 
 % 15.
@@ -630,6 +622,9 @@ affordance_permits(go_through(A, D, L), I, 34) :- holds(on(A, S), I),
 %%
 % Forbidding affordances
 affordance_forbids(pick_up(A,O),I,35) :- not has_weight(O,light), limb_strength(A,arm,poor).
+
+
+                             
 
 
                              
