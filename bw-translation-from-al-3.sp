@@ -15,7 +15,7 @@
 %% 
 %% --------------------------------------------
 
-#const n=12.
+#const n=9.
 
 sorts
 
@@ -53,7 +53,7 @@ sorts
 
 #inertial_fluent = on(#thing(X), #obj_w_zloc(Y)):X!=Y +
 		   z_loc(#obj_w_zloc(X), #vertsz(Z)) + 
-		   location(#thing(X), #area(A)) + 
+		   location(#obj_w_zloc(X), #area(A)) + 
 		   in_hand(#agent(A), #object(O)).
 
 #defined_fluent = in_range(#obj_w_zloc(X), #obj_w_zloc(Y), #vertsz):X!=Y + 
@@ -68,7 +68,7 @@ sorts
 
 #action = go_to(#agent(A), #obj_w_zloc(S)) +
           put_down(#agent(A), #object(X), #obj_w_zloc(Y)):X!=Y +
-          go_through(#agent(A), #exit(E), #area(Ar)) +
+          go_through(#agent(A), #exit(E), #obj_w_zloc(P)) +
           pick_up(#agent(A), #object(O)).   
           
 %%-----------
@@ -126,11 +126,11 @@ holds(z_loc(A, Z+H), I+1) :- occurs(go_to(A, S), I),
 			     holds(z_loc(S, Z), I). 
 
 % 5. 
-holds(location(A, L), I+1) :- occurs(go_through(A, D, L), I).
+%holds(location(A, L), I+1) :- occurs(go_through(A, D, L), I).
 
 % 6. 
 % Assume agent ends up on the floor if location is changed
-holds(on(A, floor), I+1) :- occurs(go_through(A, D, L), I).
+%holds(on(A, floor), I+1) :- occurs(go_through(A, D, L), I).
 
 % 7. 
 holds(z_loc(O, Z+H), I+1) :- occurs(put_down(A, O, S), I),  
@@ -161,11 +161,37 @@ holds(in_hand(A, O), I+1) :- occurs(pick_up(A, O), I).
 			     Z2!=Z.
 
 % 13. Go thorugh removes the agent from the surface they were standing on. [This shoud not apply for standing on the floor - or a separate floor for corridor needs to be added]
--holds(on(A, S), I+1) :- occurs(go_through(A, D, L), I),
-			 holds(on(A,S),I).
+%-holds(on(A, S), I+1) :- occurs(go_through(A, D, L), I),
+%			 holds(on(A,S),I).
 
 % go through causes NOT location
 %-holds(location(A, L), I+1) :- occurs(go_through(A, D, L2), I), holds(location(A,L),I), L2!=L.
+
+% 13. Go thorugh removes the agent from the surface they were standing on. 
+-holds(on(A, S), I+1) :- occurs(go_through(A, D, L), I),
+			 holds(on(A,S),I).
+
+% NN go through causes NOT location
+-holds(location(A, Loc), I+1) :- occurs(go_through(A, D, P), I), holds(location(A,Loc),I).
+
+% NN go through causes on
+holds(on(A, P), I+1) :- occurs(go_through(A, D, P), I).
+
+% NN go through causes location change for object the agent carries
+holds(location(A, Loc), I+1) :- occurs(go_through(A, D, P), I), holds(location(P,Loc),I).
+
+%-holds(location(O, Loc), I+1) :- occurs(go_through(A, D, S), I),
+%				 holds(in_hand(A,O),I), holds(location(O,Loc),I).
+
+% 14 things change location if brought into another room
+holds(location(O,Loc2),I+1) :- occurs(go_through(A,Ex,P),I), 
+			       holds(location(P,Loc2),I),
+   			       holds(in_hand(A,O),I).
+ 
+% 14 things change location if brought into another room
+-holds(location(O,Loc1),I+1) :- occurs(go_through(A,Ex,P),I), 
+			        holds(location(O,Loc1),I),
+			        holds(in_hand(A,O),I).
 
 %%---------------------
 %% II State Constraints
@@ -222,6 +248,9 @@ holds(can_support(S, O), I) :- material(S, wood).
 % 12. impossible to be on something that doesn't have a surface
 -holds(on(X, Y),I) :- not has_surf(Y, true). 
 
+% 13 on causes loc
+holds(location(X,Loc),I) :- holds(location(Y, Loc), I),
+			    holds(on(X,Y),I).
 
 %% ----------------------------
 %% III Executability Conditions
@@ -246,9 +275,10 @@ holds(can_support(S, O), I) :- material(S, wood).
 -occurs(put_down(A, O, S), I) :- holds(on(O2, S), I), #object(S).
 
 % 7.
--occurs(go_through(A, D, Loc2), I) :- holds(location(A, Loc1), I),
-				      not has_exit(Loc1, D),
-				      not has_exit(Loc2, D).
+-occurs(go_through(A, D, S), I) :- not holds(location(A, Loc1), I),
+				   not holds(location(S, Loc2), I),
+				   not has_exit(Loc1, D),
+				   not has_exit(Loc2, D).
 
 % 8.
 -occurs(go_to(A, S), I) :- holds(in_hand(A2, S), I).
@@ -269,8 +299,8 @@ holds(can_support(S, O), I) :- material(S, wood).
                            
 % 11. 
 % forbid the agent from going to the same place
--occurs(go_through(A, D, Loc2), I) :- holds(location(A, Loc1), I),
-				      Loc1=Loc2.        
+-occurs(go_through(A, D, S), I) :- holds(location(A, Loc1), I), holds(location(S, Loc2),I),
+				   Loc1=Loc2.    
 % 12.
 -occurs(go_to(A,S),I) :- holds(on(A,S2),I),
 			 S=S2.
@@ -295,12 +325,33 @@ holds(can_support(S, O), I) :- material(S, wood).
 % 17. can't pick up objects larger than oneself
 -occurs(pick_up(A,O),I) :- height(A,H), height(O,HO), HO>=H+2.	
 
-% 18. sanity check rule for affordance deletion: cannot travel through openings more than 2 units away 
+% 18. sanity check rules for affordance deletion: cannot travel through openings more than 2 units away 
 % out of span 
 -occurs(go_through(A,E,L),I) :- holds(in_range(E,A,X),I), height(A,H), X>=H+2.
-% 19. sanity check rule for affordance deletion: cannot travel through openings lower than the agent, 
+% 19. cannot travel through openings lower than the agent, 
 -occurs(go_through(A,E,L),I) :- holds(in_range(A,E,X),I), height(E,H), X>=H.	
-                        
+
+% 20 Cannot travel to stufaces out of reach 
+-occurs(go_through(A,E,S),I) :- holds(z_loc(S, Z), I), 
+                                holds(z_loc(E, Z2), I),
+                                height(E, H),
+                                Z2 - H = BASE, 
+                                Z < BASE - 1.
+
+% 21. 
+-occurs(go_through(A, E, S), I) :- holds(z_loc(S, Z), I), 
+                           	   holds(z_loc(E, Z2), I), 
+                           	   height(E, H), 
+                           	   Z2 - H = BASE, 
+                                   Z > BASE + 1. 
+
+
+% 22. Cannot bring object through a smaller exit/opening
+-occurs(go_through(A, Ex, S),I) :- holds(in_hand(A,O),I), height(O,HO),height(Ex,HE), HO>=HE.
+
+% 23. No agent can pick up objects more than 2 units out of reach
+-occurs(pick_up(A,O),I) :- holds(in_range(O,A,X),I), height(A,H), X>H+1.
+-occurs(pick_up(A,O),I) :- holds(z_loc(O,Zo),I), holds(z_loc(A,Za),I), height(A,Ha), Za-Ha-Zo>1.                       
                            
 %% ------------------------------
 %% Exec. conditions + affordances
@@ -313,28 +364,26 @@ holds(can_support(S, O), I) :- material(S, wood).
 % 2. Impossible to go to surfaces which don't support the agent. [executability condition]
 -occurs(go_to(A,S),I) :- not affordance_permits(go_to(A, S), I, 30).
 
-% 3. Impossible to pick up objects above the agent unless it's no higher than 1 unit out of their reach...
--occurs(pick_up(A, O), I) :- holds(in_range(O,A,X),I), height(A,H), 
-			     X>=H,
-			     not affordance_permits(pick_up(A,O),I,17).
 
-% 4.
-% ... IF agent arms have good mobility AND appropriate strength.
--occurs(pick_up(A, O), I) :- holds(in_range(O,A,X),I), height(A,H), 
-			     X>=H, 
-			     affordance_permits(pick_up(A,O),I,17),
+% 3. Agents with flexible arms can pick up objects out of their reach... [higher]
+-occurs(pick_up(A, O), I) :- holds(in_range(O,A,X),I), height(A,H), X>=H,
+			     not affordance_permits(pick_up(A,O),I,13),
+			     not affordance_permits(pick_up(A,O),I,14).
+
+% 4. ...[lower]...
+-occurs(pick_up(A, O), I) :- holds(z_loc(A,Z),I), height(A,H), holds(z_loc(O,ZO),I), Z-H>=ZO,
 			     not affordance_permits(pick_up(A,O),I,13),
 			     not affordance_permits(pick_up(A,O),I,14).
 
 % 5.
-% pick_up impossible if object is below the agent UNLESS their legs have good mobility AND it's not lower than 1 unit out of their reach.
+% ...unless the object is lower, in which case they must also have good leg mobility. [average strength]
 -occurs(pick_up(A, O), I) :- holds(z_loc(A,Z),I), height(A,H), holds(z_loc(O,ZO),I), Z-H>=ZO,
-			     not affordance_permits(pick_up(A,O),I,18).
+			     affordance_permits(pick_up(A,O),I,13),
+			     not affordance_permits(pick_up(A,O),I,15).
 
-% 6. ...and their arms have appropriate mobility  			     
+% 6. ... [second conjunctive set for strong agents]			     
 -occurs(pick_up(A, O), I) :- holds(z_loc(A,Z),I), height(A,H), holds(z_loc(O,ZO),I), Z-H>=ZO,
-			     affordance_permits(pick_up(A,O),I,18),
-			     not affordance_permits(pick_up(A,O),I,15),
+			     affordance_permits(pick_up(A,O),I,14),
 			     not affordance_permits(pick_up(A,O),I,16).
 
 % 7. can't pick up objects larger than oneself unless they're light			     
@@ -343,71 +392,93 @@ holds(can_support(S, O), I) :- material(S, wood).
 			     
 			     
 % similar constraints apply to putting objects down:
-% 8. can't put down objects on surfaces out of reach unless they're no more than 2 units higher
+% 8. can't put objects on surfaces out of reach (higher) unless the agent has appropriate arm mobility (allowing to reuse the same skills as needed for pickup)
 -occurs(put_down(A,O,S),I) :- holds(z_loc(A,Z),I), holds(z_loc(S,ZS),I),ZS>=Z,			       
-			      not affordance_permits(put_down(A,O),I,20).	
-
-% 9. ...and the agent has appropriate arm mobility / object isn't too heavy for the agent...
--occurs(put_down(A,O,S),I) :- holds(z_loc(A,Z),I), holds(z_loc(S,ZS),I),ZS>=Z,			       
-			      affordance_permits(put_down(A,O,S),I,20),
 			      not affordance_permits(pick_up(A,O),I,13),
-			      not affordance_permits(pick_up(A,O),I,14). 
+			      not affordance_permits(pick_up(A,O),I,14).	
 
-% 10. can't put down objects on surfaces out of reach unless they're no more than 2 units lower
-% OR the object isn't heavier than than the surface & object isn't heavy.
--occurs(put_down(A,O,S),I) :- holds(z_loc(A,Z),I), holds(z_loc(S,ZS),I), height(A,H),Z-H>ZS,			       
-			      not affordance_permits(put_down(A,O,S),I,21),
+
+% 10. can't put down objects on surfaces more than 1 unit lower, unless the objects can be 'dropped'.
+-occurs(put_down(A,O,S),I) :- holds(z_loc(A,Z),I), holds(z_loc(S,ZS),I), height(A,H),Z-H>ZS,
+			      not affordance_permits(put_down(A,O,S),I,21),								
                               not affordance_permits(put_down(A,O,S),I,22),
                               not affordance_permits(put_down(A,O,S),I,23).	
 
-% 11. ...and the agent has appropriate arm mobility / object isn't too heavy for the agent...
+% 11. if objects can't be 'droppped', only agents with flexible limbs can put them on lower surfaces 
 % These agent attributes are the same as they are for picking up objects out of range:
 % if agents possess these characteristics, they can also put objects down.
 -occurs(put_down(A,O,S),I) :- holds(z_loc(A,Z),I), holds(z_loc(S,ZS),I),height(A,H),Z-H>ZS,			       
 			      affordance_permits(put_down(A,O,S),I,21),
 			      not affordance_permits(pick_up(A,O),I,15),
 			      not affordance_permits(pick_up(A,O),I,16). 	     
-			       			  			    
 
 % 12.
+-occurs(put_down(A,O,S),I) :- holds(z_loc(A,Z),I), holds(z_loc(S,ZS),I),height(A,H),Z-H>ZS, 			       
+			      affordance_permits(put_down(A,O,S),I,21),
+			      affordance_permits(pick_up(A,O),I,15),
+			      not affordance_permits(pick_up(A,O),I,13). 
+% 13. 
+-occurs(put_down(A,O,S),I) :- holds(z_loc(A,Z),I), holds(z_loc(S,ZS),I),height(A,H),Z-H>ZS, has_weight(O,heavy),			       
+			      affordance_permits(put_down(A,O,S),I,21),
+			      affordance_permits(pick_up(A,O),I,16),
+			      not affordance_permits(pick_up(A,O),I,14). 			       			  			    
+
+% 14.
 % put down impossible UNLESS target surface can support the obj.
 -occurs(put_down(A, O, S), I) :- not affordance_permits(put_down(A, O, S), I, 24).
  
-% 13.
-% put_down impossible UNLESS target surface can support the obj. + 
-% target surface is in agents' reach. 
--occurs(put_down(A, O, S), I) :- not affordance_permits(put_down(A, O, S), I, 24), 
-                                 not affordance_permits(put_down(A, O, S), I, 25).
+% 15.
+% put_down impossible for inflexible agents UNLESS target surface is in agents' reach. 
+-occurs(put_down(A, O, S), I) :- not affordance_permits(put_down(A, O, S), I, 25).
                                                       
-% 14. 
+% 16. 
 % go_to an object not in range 0 is impossible UNLESS agent has pro leg mobility, target surface is within agents'
 % movement range (+-1 unit).
 -occurs(go_to(A, S), I) :- holds(z_loc(S,Z),I), holds(z_loc(A,Z2),I), height(A, H), Z!=Z2-H,
-			   not affordance_permits(go_to(A, S), I, 28), 
-                           not affordance_permits(go_to(A, S), I, 29). %,
-                           %not affordance_permits(go_to(A, S), I, 20).
+			   not affordance_permits(go_to(A, S), I, 28).
 
-  
-% 15. 
+-occurs(go_to(A, S), I) :- holds(z_loc(S,Z),I), holds(z_loc(A,Z2),I), height(A, H), Z!=Z2-H,
+			   affordance_permits(go_to(A, S), I, 28),
+			   not affordance_permits(pick_up(A,O),I,15),
+			   not affordance_permits(pick_up(A,O),I,16),
+			   #object(O).
+ 
+% 17. 
 % go_through openings no in range 0 impossible unless there's a surface within range
 % of the opening + agents' height allows them to fit through the opening. 
 % 1) the surf is lower, and the agent has good leg mob. 
 % 2) the surf is higher, and the agent can still fit through the opening with the remaining space
 % 3) more than 1 unit if agent strong, not heavy, strong arms, can drop on other side. 
--occurs(go_through(A, D, L), I) :- holds(in_range(D,A,X),I), X!=0,
-				   not affordance_permits(go_through(A, E, L), I, 31),
-				   not affordance_permits(go_through(A, E, L), I, 32). 
+-occurs(go_through(A, Ex, P), I) :- holds(in_range(Ex,A,X),I), X!=0,
+				   not affordance_permits(go_through(A, Ex, P), I, 31),
+				   not affordance_permits(go_through(A, Ex, P), I, 32).
 
 
-% 16. go_through impossible unless the agents' height allows them to fit through the opening. 
--occurs(go_through(A, E, L), I) :-  not affordance_permits(go_through(A, E, L), I, 33).
-                                   
+% 18. go_through impossible unless the agents' height allows them to fit through the opening.
+% Agent's can't use an opening that is smaller than them, unless their legs are flexible (i.e.
+% an agent can squat or perhaps also bend their arms. This could be altered to add something 
+% like torso flexibility.) This isn't otherwise constrained - the smallest exit is 1 unit high
+% and agents height won't be selected above 3. 
+-occurs(go_through(A, E, L), I) :-  height(A, H), height(E, H_exit), H >= H_exit,
+				    not affordance_permits(pick_up(A, O), I, 15),
+				    not affordance_permits(pick_up(A, O), I, 16). 
+                                 
                                          
-% 17. 
+% 19. 
 % go_through impossible unless the opening is within agents' movement range (reach), 
-% and agent has a lot of strength + isn't very heavy 
-% (add in arm mobility?) 
+% and agent has a lot of strength 
+% (add in arm mobility for climbing down to surfaces?) 
 %-occurs(go_through(A, D, R), I) :- not affordance_permits(go_through(A, D, R), I, 34).
+-occurs(go_through(A, Ex, P), I) :- holds(z_loc(P,Zp),I), holds(z_loc(Ex,Ze),I), height(Ex, He), Ze-He>Zp,
+			            not affordance_permits(go_to(A, P), I, 28).
+
+% 20.
+-occurs(go_through(A, Ex, P), I) :- holds(z_loc(P,Zp),I), holds(z_loc(Ex,Ze),I), height(Ex, He), Ze-He>Zp,
+			            affordance_permits(go_to(A, P), I, 28),
+			   	    not affordance_permits(pick_up(A,O),I,15),
+			   	    not affordance_permits(pick_up(A,O),I,16),
+			   	    #object(O).
+					
                              
 
 %% AFFORDANCE AXIOMS END
@@ -440,43 +511,36 @@ affordance_permits(pick_up(A,O),I,13) :- joint_mobility(A,arm,good), limb_streng
 affordance_permits(pick_up(A,O),I,14) :- limb_strength(A,arm,good), joint_mobility(A,arm,good).
 
 % 6.
-% agents with flexible, average strength arms and legs are able to pick up objects lower than temselves, if they aren't heavy.
-affordance_permits(pick_up(A,O),I,15) :- joint_mobility(A,leg,good),limb_strength(A,leg,average),
-					 joint_mobility(A,arm,good),limb_strength(A,arm,average), not has_weight(O,heavy).
+% agents with flexible, average strength arms and legs are able to pick up objects lower than temselves, if they aren't heavy. CONJUNCT WITH PREV. PICKUP AXIOMS.
+affordance_permits(pick_up(A,O),I,15) :- joint_mobility(A,leg,good),limb_strength(A,leg,average).
 % 7.
-% agents with flexible, strong arms and legs are able to pick up objects lower than themselves.
-affordance_permits(pick_up(A,O),I,16) :- joint_mobility(A,leg,good),limb_strength(A,leg,good),
-					 limb_strength(A,arm,good), joint_mobility(A,arm,good).
-
-% 8.
-% objects out of range cannot be picked up - unless they're no more than two units higher than the agent.
-affordance_permits(pick_up(A,O),I,17) :- holds(in_range(O,A,X),I), height(A,H), 
-			                 X<H+2. 
-% 9.
-% % objects out of range cannot be picked up - unless they're no more than two units lower than the agent.
-affordance_permits(pick_up(A,O),I,18) :- holds(z_loc(A,Z),I), height(A,H), holds(z_loc(O,ZO),I), 
-			                 Z-H>=ZO, Z-H-ZO<2. 
+% agents with flexible, strong arms and legs are able to pick up objects lower than themselves. CONJUNCT WITH PREV. PICK UP AXIOMS. 
+affordance_permits(pick_up(A,O),I,16) :- joint_mobility(A,leg,good),limb_strength(A,leg,good).
+% these two can just be included in the - no they can't 
 
 % 10.
+% this doesn't add much.  -unless plastic boxes solve the problem!
 % Agents can lift objects larger than themselves, if these objects are light.
 affordance_permits(pick_up(A,O),I,19) :- height(A,H), height(O, HO), HO>=H, HO<=H+1, has_weight(O,light). 
+
 
 % 11.
 % objects can be put on surfaces out of range - if they're no more than two units higher than the agent.
 affordance_permits(put_down(A,O,S),I,20) :- holds(z_loc(A,Z),I), holds(z_loc(S,ZS),I),ZS>=Z, ZS-Z<=2.
 
+% do these need to have the z information? 
 % 12.
 % objects can be put on surfaces out of range - if they're no more than two units lower than the agent.
-affordance_permits(put_down(A,O,S),I,21) :- holds(z_loc(A,Z),I), holds(z_loc(S,ZS),I), height(A,H),Z-H>ZS, Z-ZS<=2.
+affordance_permits(put_down(A,O,S),I,21) :- holds(z_loc(A,Z),I), holds(z_loc(S,ZS),I), height(A,H),Z-H>ZS, Z-H-ZS<2.
 
 % 13.
 % objects can be put on surfaces lower than the agent can reach - if the object is light, i.e. it can be 'dropped'.
-affordance_permits(put_down(A,O,S),I,22) :- holds(z_loc(A,Z),I), holds(z_loc(S,ZS),I), height(A,HA), ZS<Z-HA, has_weight(O, light).
+affordance_permits(put_down(A,O,S),I,22) :- has_weight(O, light).
 
 % 14.
 % objects can be put on surfaces lower than the agent can reach - if the object is not heavy and the surface isn't fragile,
 % i.e. it can be 'dropped' without damaging the surface.
-affordance_permits(put_down(A,O,S),I,23) :- holds(z_loc(A,Z),I), holds(z_loc(S,ZS),I), height(A,HA), ZS<Z-HA, has_weight(O, medium), not material(S,glass), not material(O,glass).
+affordance_permits(put_down(A,O,S),I,23) :- has_weight(O, medium), not material(S,glass), not material(O,glass).
 
 
 % 15.
@@ -484,27 +548,20 @@ affordance_permits(put_down(A,O,S),I,23) :- holds(z_loc(A,Z),I), holds(z_loc(S,Z
 affordance_permits(put_down(A, O, S), I, 24) :- holds(can_support(S, O), I).
 
 % 16. 
-% Aff. permits moving objects, if the target surface is within range of agents' reach (assumed to be the span of the agents body). 
-affordance_permits(put_down(A, O, S), I, 25) :- height(A, H), height(S, HO),
+% Aff. permits moving objects, if the target surface is within range of agents' reach (assumed to be the span of the agents body). CONTRADICOTRY TO THE 'DROP' RULES ABOVE
+affordance_permits(put_down(A, O, S), I, 25) :- height(A, H),
 						holds(z_loc(S,SZ),I), holds(z_loc(A,ZA),I), 
                                                 ZA-H<=SZ, SZ<=ZA.
 
 
 % 17. 
-%Aff. permits going to surfaces within 1 unit if the agent posesses good leg mobility.
+%Aff. permits going to surfaces within 1 unit if the agent posesses good leg mobility. CONJUNCT. WITH LEG MOBILITY FROM PICK UP.
 affordance_permits(go_to(A, S), I, 28) :- holds(z_loc(S, Z), I), 
                                           holds(z_loc(A, Z2), I), 
                                           height(A, H), 
                                           Z2 - H = BASE, 
-                                          Z <= BASE + 1, joint_mobility(robot, leg, good).
-
-% 18. 
-% Aff. permits going to surfaces, if they're not too low for the agent and the agent posesses good leg mobility.
-affordance_permits(go_to(A, S), I, 29) :- holds(z_loc(S, Z), I), 
-                                          holds(z_loc(A, Z2), I),
-                                          height(A, H),
-                                          Z2 - H = BASE, 
-                                          Z >= BASE - 1, joint_mobility(robot, leg, good).
+                                          Z <= BASE + 1,
+					  Z >= BASE - 1.
 
 % 19. 
 % Aff. permits going to surfaces, if they can support the agent.
@@ -514,32 +571,21 @@ affordance_permits(go_to(A, S), I, 30) :- holds(can_support(S, A), I), #agent(A)
 % Aff. permits going through an opening if there's a surface within 1 unit of the opening. if pro leg mobility Here's the error - need to have the var in the outer scope
 % actually no - issues maybe arising from the fact that this is a disjuction.
 % OR the range itself...
-affordance_permits(go_through(A, Opening, L), I, 31) :- holds(in_range(Opening, S, X), I), 
+affordance_permits(go_through(A, Opening, P), I, 31) :- holds(in_range(Opening, S, X), I), 
                                                         has_surf(S, true), height(S,H), 
-                                                        X=H+1,joint_mobility(robot, leg, good), holds(on(A,S),I).
+                                                        X=H+1, holds(on(A,S),I).
 
-affordance_permits(go_through(A, Opening, L), I, 32) :- holds(in_range(S, Opening, X), I), X>0,
+affordance_permits(go_through(A, Opening, P), I, 32) :- holds(in_range(S, Opening, X), I), X>0,
 							holds(z_loc(Opening,Z),I), holds(z_loc(S,ZS),I), holds(on(A,S),I), 
 							height(A,H), Z-ZS>=H.
 
 % 22. Aff. permits going through openings that the agent can fit through.
 % This remains an exec. cond. unless I introduce bendiness for agents to squeeze through opening that are smaller than preferred. 
-affordance_permits(go_through(A, E, L), I, 33) :- height(A, H), 
+affordance_permits(go_through(A, E, P), I, 33) :- height(A, H), 
                                                   height(E, H_exit),
                                                   H <= H_exit.
 
-
-% 23.
-% ID #26 Aff. permits going through openings that are within agents' movement range (assumed to be equal to agents' height).
-% can't go through openings that aren't at the exact same level as you unless it's within 1 unit and the agent has pro leg mobility
-affordance_permits(go_through(A, D, L), I, 34) :- holds(on(A, S), I),
-                                                  height(A, HA),
-                                                  height(D, HD),
-                                                  height(S, HS),
-                                                  holds(in_range(D, S, X), I), 
-                                                  HS + HA > X,
-                                                  HS < X + HD.
-                                                  %affordance_permits(go_to(A, S), I, 30)                                    
+% Agents whose limbs (or just legs?) are flexible can also go through smaller openings - i.e. they can 'squat' and this can be taken from pick up?                            
 
 
 %%
@@ -585,7 +631,7 @@ success :- goal(I),
 :- not success.
 
 % an action must occur at each step
-occurs(A,I) :+ #action(A).
+occurs(A,I) :+ not goal(I).
 
 % do not allow concurrent actions
 -occurs(A2, I) :- occurs(A1, I),
@@ -608,14 +654,14 @@ plan_length(0) :- goal(0).
 %%------------------
 
 joint_mobility(robot, leg, good).
-limb_strength(robot, leg, good).
-joint_mobility(robot, arm, good).
+limb_strength(robot, leg, average).
+joint_mobility(robot, arm, average).
 limb_strength(robot, arm, good).
 
 %&%& Received initial condition:
 
 has_exit(room, door).
-%has_exit(corridor, door).
+has_exit(corridor, door).
 
 material(box1, paper).
 material(box2, wood).
@@ -652,7 +698,7 @@ height(box1, 1).
 height(box2, 2). 
 height(box3, 1).
 height(box4, 3).
-height(box5, 2).
+height(box5, 3).
 height(door, 3).
 height(cup, 1).
 height(chair,1).
@@ -664,10 +710,10 @@ holds(on(box1,floor),0).
 holds(on(box2,floor),0). 
 holds(on(box3,floor),0).
 holds(on(box4, floor),0). 
-holds(on(box5, floor), 0).
+holds(on(box5, floor_cor), 0).
 %holds(on(robot, floor),0).
 holds(on(robot, box3),0).
-holds(on(cup, box5), 0).
+%holds(on(cup, box5), 0).
 holds(on(chair,floor),0).
 %holds(on(chair,box2),0).
 
@@ -681,23 +727,29 @@ holds(location(box4, room), 0).
 holds(location(box5, corridor), 0).
 holds(location(cup, corridor), 0).
 holds(location(chair,room),0).
-holds(on(cup, box5), 0).
+
+holds(on(cup, floor_cor), 0).
+holds(location(floor_cor,corridor),0).
+material(floor_cor,wood).
+has_surf(floor_cor, true).
+height(floor_cor,0).
+holds(z_loc(floor_cor,0),0).
 
 %&%& End of starting state
 
 % Goals:
 %goal(I) :- holds(z_loc(robot, 4), I).
 %goal(I) :- holds(z_loc(box2, 3), I).
-goal(I) :- holds(location(robot, corridor), I).
+%goal(I) :- holds(location(robot, corridor), I).
 %goal(I) :- holds(on(box3, box4), I).
 % Execution Goal
 %goal(I) :- holds(in_hand(robot, box5), I).
 %goal(I) :- holds(in_hand(robot, chair), I).
 %goal(I) :- holds(in_hand(robot, cup), I).%
-%goal(I) :- holds(on(robot, box4), I).
+%goal(I) :- holds(on(robot, box5), I).
 %goal(I) :- holds(on(robot, floor), I).
 %goal(I) :- holds(on(chair, floor), I).
-%goal(I) :- holds(on(box1, box2), I).
+goal(I) :- holds(on(box1, box2), I).
 %goal(I) :- holds(on(box1, box2), I).
 %goal(I) :- holds(z_loc(robot, 0),I).
 %success.
