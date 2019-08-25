@@ -15,7 +15,7 @@
 %% 
 %% --------------------------------------------
 
-#const n=11.
+#const n=12.
 
 sorts
 
@@ -25,7 +25,7 @@ sorts
 #exit = {door}. 
 
 #agent = {robot}.  %, human}.
-#fixed_element = {floor, door}.
+#fixed_element = {floor, floor_cor, door}.
 #object = {box1, box2, box3, box4, box5, box6, chair, cup}.
 #thing = #object + #agent.
 
@@ -246,7 +246,7 @@ holds(can_support(S, O), I) :- material(S, wood).
 -occurs(put_down(A, O, S), I) :- holds(on(O2, S), I), #object(S).
 
 % 7.
--occurs(go_through(A, D, Loc2), I) :- not holds(location(A, Loc1), I),
+-occurs(go_through(A, D, Loc2), I) :- holds(location(A, Loc1), I),
 				      not has_exit(Loc1, D),
 				      not has_exit(Loc2, D).
 
@@ -299,7 +299,7 @@ holds(can_support(S, O), I) :- material(S, wood).
 % out of span 
 -occurs(go_through(A,E,L),I) :- holds(in_range(E,A,X),I), height(A,H), X>=H+2.
 % 19. sanity check rule for affordance deletion: cannot travel through openings lower than the agent, 
-%-occurs(go_through(A,E,L),I) :- holds(in_range(A,E,X),I), height(E,H), X>=H.	
+-occurs(go_through(A,E,L),I) :- holds(in_range(A,E,X),I), height(E,H), X>=H.	
                         
                            
 %% ------------------------------
@@ -600,6 +600,8 @@ something_happened(I) :- occurs(A,I).
 
 plan_length(I) :- not goal(I-1), goal(I).
 
+plan_length(0) :- goal(0).
+
 
 %%------------------
 %% Initial Condition
@@ -613,7 +615,7 @@ limb_strength(robot, arm, good).
 %&%& Received initial condition:
 
 has_exit(room, door).
-has_exit(corridor, door).
+%has_exit(corridor, door).
 
 material(box1, paper).
 material(box2, wood).
@@ -686,17 +688,18 @@ holds(on(cup, box5), 0).
 % Goals:
 %goal(I) :- holds(z_loc(robot, 4), I).
 %goal(I) :- holds(z_loc(box2, 3), I).
-%goal(I) :- holds(location(robot, corridor), I).
+goal(I) :- holds(location(robot, corridor), I).
 %goal(I) :- holds(on(box3, box4), I).
 % Execution Goal
 %goal(I) :- holds(in_hand(robot, box5), I).
 %goal(I) :- holds(in_hand(robot, chair), I).
-%goal(I) :- holds(in_hand(robot, cup), I).
-goal(I) :- holds(on(robot, box4), I).
+%goal(I) :- holds(in_hand(robot, cup), I).%
+%goal(I) :- holds(on(robot, box4), I).
 %goal(I) :- holds(on(robot, floor), I).
 %goal(I) :- holds(on(chair, floor), I).
 %goal(I) :- holds(on(box1, box2), I).
 %goal(I) :- holds(on(box1, box2), I).
+%goal(I) :- holds(z_loc(robot, 0),I).
 %success.
 
 display
