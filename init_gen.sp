@@ -15,12 +15,12 @@
 
 sorts
 
-#area = {room, corridor, foyer}.
+#area = {room, corridor}.
 #exit = {door, window}.
 
 
 #agent = {robot}.
-#fixed_element = {floor} + #exit.
+#fixed_element = {floor, floor_cor} + #exit.
 #object = {box1, box2, box3, box4, box5, chair, cup}.
 #thing = #object + #agent.
 
@@ -45,7 +45,7 @@ sorts
 
 #inertial_fluent = on(#thing(X), #obj_w_zloc(Y)):X!=Y +
 		   z_loc(#obj_w_zloc, #vertsz) + 
-		   location(#thing, #area) + 
+		   location(#obj_w_zloc, #area) + 
 		   in_hand(#agent, #object).
 
 #defined_fluent = in_range(#obj_w_zloc, #obj_w_zloc, #vertsz) + 
@@ -186,23 +186,22 @@ holds(can_support(S, O), I) :- material(S, wood), has_surf(S, true).
 1{holds(on(X, floor), 0); holds(on(X,box2),0); holds(on(X,box3),0)}1 :- #thing(X), X=box1.  
 1{holds(on(X, floor), 0); holds(on(X,box3),0)}1 :- #thing(X), X=box2.  
 1{holds(on(X, floor), 0); holds(on(X,box2),0); holds(on(X,box3),0)}1 :- #thing(X), X=robot.  
-1{holds(on(X, floor), 0); holds(on(X,box5),0)}1 :- #thing(X), X=cup.  
 
 % If it exists, it must have a location
 %1{holds(location(X, Ar), I); holds(location(X, Ar2)}1 :- #thing(X), #area(Ar), #area(Ar2), Ar!=Ar2.
 1{holds(location(cup, room), I); holds(location(cup, corridor),I)}1.
 1{holds(location(box5, room), I); holds(location(box5, corridor),I)}1.
 
+1{holds(on(X, floor_cor), 0); holds(on(X,floor),0)}1 :- #thing(X), X=box5.  
+
 % if it exists, it must have height. The range is different for agents, objects and static objects:
 % Object height is between 1-4
-% Agent height is between 1-3
-% Door height is 2-6
-% window height is 1-3
+% Door height is 1-3
 %1{height(X,1); height(X,2); height(X,3); height(X,4)}1 :- #object(X), X!=cup.
 %1{height(X,1); height(X,2); height(X,3); height(X,4)}1 :- #object(X), X!=cup.
-%1{height(X,2); height(X,3); height(X,4); height(X,5); height(X,6)}1 :- #exit(X). %, X!=window.
+1{height(X,2); height(X,3)}1 :- #exit(X), X=door.
 %1{height(X,1); height(X,2); height(X,3); height(X,4)}1 :- exit(X), X=window.
-1{height(X,1); height(X,2)}1 :- #object(X), X=box5.
+1{height(X,2); height(X,3)}1 :- #object(X), X=box5.
 1{height(X,1); height(X,2)}1 :- #object(X), X=box3.
 %1{height(X,2); height(X,3)}1 :- #exit(X).
  
@@ -223,6 +222,9 @@ holds(can_support(S, O), I) :- material(S, wood), has_surf(S, true).
 
 % Agents have a strength level
 %1{has_power(A, weak); has_power(A,strong)}1 :- #agent(A).
+
+holds(on(X, floor_cor), 0) :- holds(location(X, corridor),0), #thing(X), X=cup.
+1{holds(on(X,box5),0); holds(on(X,box1),0)}1 :- holds(location(X, room),0), #thing(X), X=cup. 
 
 
 %%------------------
@@ -252,7 +254,7 @@ material(box3, wood).
 material(box5, wood).
 
 holds(z_loc(floor,0),0).
-holds(z_loc(door,7),0).
+holds(z_loc(door,6),0).
 
 holds(on(box3, floor), 0).
 holds(on(box4, floor), 0).
@@ -268,16 +270,22 @@ holds(location(chair, room),0).
 height(floor, 0).
 height(cup, 1).
 height(chair,1).
-height(door, 3).
+%height(door, 3).
 height(box1, 1). 
 height(box2, 1). 
 height(box4, 3).
 height(robot, 2).
 
+holds(location(floor_cor,corridor),0).
+holds(location(floor,room),0).
+material(floor_cor,wood).
+has_surf(floor_cor, true).
+height(floor_cor,0).
+holds(z_loc(floor_cor,0),0).
 
 joint_mobility(robot, leg, good).
-limb_strength(robot, arm, good).
-joint_mobility(robot, leg, good).
+limb_strength(robot, leg, good).
+joint_mobility(robot, arm, good).
 limb_strength(robot, arm, good).
 
 has_weight(box1, light).
